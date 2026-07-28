@@ -1,11 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Percent } from "lucide-react";
+import { toast } from "sonner";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { EmptyState, StatCard } from "@/components/portal/Panels";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { brl, dataBR, listComissoes, updateComissaoStatus } from "@/lib/portal/api";
 
 export const Route = createFileRoute("/comissoes")({
   head: () => ({
@@ -26,42 +39,101 @@ export const Route = createFileRoute("/comissoes")({
 });
 
 function Comissoes() {
+  const qc = useQueryClient();
+  const [aba, setAba] = useState("pendente");
+  const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes });
+
+  const mudar = useMutation({
+    mutationFn: (v: { id: string; status: string }) => updateComissaoStatus(v.id, v.status),
+    onSuccess: () => {
+      toast.success("Comissão atualizada");
+      qc.invalidateQueries({ queryKey: ["comissoes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const todas = comissoes.data ?? [];
+  const total = (s: string) =>
+    todas.filter((c) => c.status === s).reduce((acc, c) => acc + Number(c.valor ?? 0), 0);
+  const lista = todas.filter((c) => c.status === aba);
+
   return (
     <PortalLayout title="Comissões" description="Cálculo automático por venda e afiliado.">
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Pendentes" value="R$ 0,00" icon={Percent} />
-        <StatCard label="Aprovadas" value="R$ 0,00" icon={Percent} />
-        <StatCard label="Pagas" value="R$ 0,00" icon={Percent} />
+        <StatCard label="Pendentes" value={brl(total("pendente"))} icon={Percent} />
+        <StatCard label="Aprovadas" value={brl(total("aprovada"))} icon={Percent} />
+        <StatCard label="Pagas" value={brl(total("paga"))} icon={Percent} />
       </div>
 
       <Card className="mt-6">
         <CardContent className="space-y-4 pt-6">
-          <Tabs defaultValue="pendentes">
+          <Tabs value={aba} onValueChange={setAba}>
             <TabsList>
-              <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
-              <TabsTrigger value="aprovadas">Aprovadas</TabsTrigger>
-              <TabsTrigger value="pagas">Pagas</TabsTrigger>
+              <TabsTrigger value="pendente">Pendentes</TabsTrigger>
+              <TabsTrigger value="aprovada">Aprovadas</TabsTrigger>
+              <TabsTrigger value="paga">Pagas</TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Afiliado</TableHead>
-                <TableHead>Venda</TableHead>
-                <TableHead>Base</TableHead>
-                <TableHead>%</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody />
-          </Table>
-
-          <EmptyState
-            icon={Percent}
-            title="Nenhuma comissão gerada"
-            description="As comissões são calculadas automaticamente a partir das vendas aprovadas."
-          />
+          {comissoes.isPending ? (
+            <Skeleton className="h-40 w-full" />
+          ) : comissoes.isError ? (
+            <p className="text-sm text-destructive">
+              Erro ao carregar comissões: {(comissoes.error as Error).message}
+            </p>
+          ) : lista.length === 0 ? (
+            <EmptyState
+              icon={Percent}
+              title="Nenhuma comissão nesta etapa"
+              description="As comissões são calculadas automaticamente a partir das vendas aprovadas."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Afiliado</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Base</TableHead>
+                  <TableHead>%</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Ação</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lista.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.afiliados?.nome ?? "—"}</TableCell>
+                    <TableCell>{dataBR(c.created_at)}</TableCell>
+                    <TableCell>{brl(c.base)}</TableCell>
+                    <TableCell>{Number(c.percentual ?? 0)}%</TableCell>
+                    <TableCell className="text-right font-medium">{brl(c.valor)}</TableCell>
+                    <TableCell className="text-right">
+                      {c.status === "pendente" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => mudar.mutate({ id: c.id, status: "aprovada" })}
+                        >
+                          Aprovar
+                        </Button>
+                      )}
+                      {c.status === "aprovada" && (
+                        <Button
+                          size="sm"
+                          onClick={() => mudar.mutate({ id: c.id, status: "paga" })}
+                        >
+                          Marcar como paga
+                        </Button>
+                      )}
+                      {c.status === "paga" && (
+                        <span className="text-xs text-muted-foreground">Concluída</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </PortalLayout>

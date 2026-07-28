@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { EmptyState } from "@/components/portal/Panels";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { listAuditoria } from "@/lib/portal/api";
 
 export const Route = createFileRoute("/auditoria")({
   head: () => ({
@@ -25,27 +35,51 @@ export const Route = createFileRoute("/auditoria")({
 });
 
 function Auditoria() {
+  const logs = useQuery({ queryKey: ["auditoria"], queryFn: listAuditoria });
+  const lista = logs.data ?? [];
+
   return (
     <PortalLayout title="Auditoria" description="Histórico de ações e alterações.">
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>Entidade</TableHead>
-                <TableHead className="text-right">Origem</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody />
-          </Table>
-          <EmptyState
-            icon={ShieldCheck}
-            title="Nenhum registro"
-            description="Cada criação, edição ou exclusão será registrada aqui automaticamente."
-          />
+          {logs.isPending ? (
+            <Skeleton className="h-40 w-full" />
+          ) : logs.isError ? (
+            <p className="text-sm text-destructive">
+              Erro ao carregar auditoria: {(logs.error as Error).message}
+            </p>
+          ) : lista.length === 0 ? (
+            <EmptyState
+              icon={ShieldCheck}
+              title="Nenhum registro"
+              description="Cada criação, edição ou exclusão será registrada aqui automaticamente."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Ação</TableHead>
+                  <TableHead>Entidade</TableHead>
+                  <TableHead className="text-right">Registro</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lista.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell>{new Date(l.created_at).toLocaleString("pt-BR")}</TableCell>
+                    <TableCell className="max-w-40 truncate">{l.user_id ?? "sistema"}</TableCell>
+                    <TableCell>{l.acao}</TableCell>
+                    <TableCell>{l.entidade ?? "—"}</TableCell>
+                    <TableCell className="max-w-40 truncate text-right text-xs text-muted-foreground">
+                      {l.entidade_id ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </PortalLayout>

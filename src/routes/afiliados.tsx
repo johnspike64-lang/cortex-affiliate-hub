@@ -1,12 +1,49 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Users, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { EmptyState } from "@/components/portal/Panels";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  brl,
+  createAfiliado,
+  listAfiliados,
+  listComissoes,
+  listVendas,
+  updateAfiliadoStatus,
+  type AfiliadoStatus,
+} from "@/lib/portal/api";
 
 export const Route = createFileRoute("/afiliados")({
   head: () => ({
@@ -26,38 +63,208 @@ export const Route = createFileRoute("/afiliados")({
   component: Afiliados,
 });
 
+const statusOptions: AfiliadoStatus[] = ["pendente", "ativo", "suspenso", "bloqueado"];
+
 function Afiliados() {
+  const qc = useQueryClient();
+  const [filtro, setFiltro] = useState("");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    nome: "",
+    email: "",
+    telefone: "",
+    documento: "",
+    nivel: "",
+  });
+
+  const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados });
+  const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas });
+  const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes });
+
+  const criar = useMutation({
+    mutationFn: () =>
+      createAfiliado({
+        nome: form.nome,
+        email: form.email || undefined,
+        telefone: form.telefone || undefined,
+        documento: form.documento || undefined,
+        nivel: form.nivel || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Afiliado cadastrado");
+      setOpen(false);
+      setForm({ nome: "", email: "", telefone: "", documento: "", nivel: "" });
+      qc.invalidateQueries({ queryKey: ["afiliados"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const mudarStatus = useMutation({
+    mutationFn: (v: { id: string; status: AfiliadoStatus }) =>
+      updateAfiliadoStatus(v.id, v.status),
+    onSuccess: () => {
+      toast.success("Status atualizado");
+      qc.invalidateQueries({ queryKey: ["afiliados"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const termo = filtro.trim().toLowerCase();
+  const lista = (afiliados.data ?? []).filter((a) =>
+    termo
+      ? [a.nome, a.email, a.documento].some((v) => (v ?? "").toLowerCase().includes(termo))
+      : true,
+  );
+
+  const vendasPor = (id: string) =>
+    (vendas.data ?? []).filter((v) => v.afiliado_id === id && v.status === "aprovada").length;
+  const comissaoPor = (id: string) =>
+    (comissoes.data ?? [])
+      .filter((c) => c.afiliado_id === id)
+      .reduce((s, c) => s + Number(c.valor ?? 0), 0);
+
   return (
     <PortalLayout
       title="Afiliados"
       description="Cadastro, níveis e desempenho da rede."
       actions={
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo afiliado
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo afiliado
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo afiliado</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="nome">Nome</Label>
+                <Input
+                  id="nome"
+                  value={form.nome}
+                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="telefone">Telefone</Label>
+                  <Input
+                    id="telefone"
+                    value={form.telefone}
+                    onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="documento">Documento</Label>
+                  <Input
+                    id="documento"
+                    value={form.documento}
+                    onChange={(e) => setForm({ ...form, documento: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="nivel">Nível</Label>
+                <Input
+                  id="nivel"
+                  placeholder="Ex.: bronze, prata, ouro"
+                  value={form.nivel}
+                  onChange={(e) => setForm({ ...form, nivel: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => criar.mutate()}
+                disabled={!form.nome.trim() || criar.isPending}
+              >
+                {criar.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       }
     >
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <Input placeholder="Filtrar por nome, e-mail ou documento" className="max-w-sm" />
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Afiliado</TableHead>
-                <TableHead>Nível</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Vendas</TableHead>
-                <TableHead className="text-right">Comissão acumulada</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody />
-          </Table>
-          <EmptyState
-            icon={Users}
-            title="Nenhum afiliado cadastrado"
-            description="A lista será alimentada pelo banco de dados assim que o backend estiver ativo."
+          <Input
+            placeholder="Filtrar por nome, e-mail ou documento"
+            className="max-w-sm"
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
           />
+
+          {afiliados.isPending ? (
+            <Skeleton className="h-40 w-full" />
+          ) : afiliados.isError ? (
+            <p className="text-sm text-destructive">
+              Erro ao carregar afiliados: {(afiliados.error as Error).message}
+            </p>
+          ) : lista.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Nenhum afiliado encontrado"
+              description="Cadastre o primeiro afiliado para começar a acompanhar vendas e comissões."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Afiliado</TableHead>
+                  <TableHead>Nível</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Vendas</TableHead>
+                  <TableHead className="text-right">Comissão acumulada</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lista.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>
+                      <p className="font-medium">{a.nome}</p>
+                      <p className="text-xs text-muted-foreground">{a.email ?? "—"}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{a.nivel ?? "—"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={a.status}
+                        onValueChange={(v) =>
+                          mudarStatus.mutate({ id: a.id, status: v as AfiliadoStatus })
+                        }
+                      >
+                        <SelectTrigger className="w-36">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>{vendasPor(a.id)}</TableCell>
+                    <TableCell className="text-right">{brl(comissaoPor(a.id))}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </PortalLayout>

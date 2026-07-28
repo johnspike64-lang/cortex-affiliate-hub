@@ -87,9 +87,9 @@ export interface Saldo {
 
 const sel = (s: string): string => s;
 
-function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
-  if (error) throw new Error(error.message);
-  return (data ?? []) as T;
+function unwrap<T>(res: { data: unknown; error: { message: string } | null }): T {
+  if (res.error) throw new Error(res.error.message);
+  return (res.data ?? []) as T;
 }
 
 export const listAfiliados = async () =>

@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
-import { Bell, LogIn, Search } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bell, LogIn, LogOut, Search } from "lucide-react";
 
 import { AppSidebar } from "@/components/portal/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth } from "@/lib/auth";
 
 type PortalLayoutProps = {
   title: string;

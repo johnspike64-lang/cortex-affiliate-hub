@@ -438,22 +438,53 @@ export async function updateLeadStatus(id: string, status: LeadStatus) {
 
     if (lead) {
       // Evitar duplicidade de venda para o mesmo lead/email
-      const { data: existingSale } = await supabase
-        .from("vendas")
-        .select("id")
-        .eq("afiliado_id", lead.afiliado_id)
-        .eq("cliente_email", lead.email || "")
-        .maybeSingle();
+      let existingSale = null;
+      if (lead.email) {
+        const { data } = await supabase
+          .from("vendas")
+          .select("id")
+          .eq("afiliado_id", lead.afiliado_id)
+          .eq("cliente_email", lead.email)
+          .maybeSingle();
+        existingSale = data;
+      }
 
       if (!existingSale) {
         // Obter o primeiro produto ativo cadastrado no sistema
-        const { data: produtos } = await supabase
+        let { data: produtos } = await supabase
           .from("produtos")
           .select("id")
           .eq("ativo", true)
           .limit(1);
 
-        const produtoId = produtos?.[0]?.id || null;
+        let produtoId = produtos?.[0]?.id || null;
+
+        if (!produtoId) {
+          // Se não houver produto ativo, tenta pegar qualquer produto
+          const { data: qualquerProduto } = await supabase
+            .from("produtos")
+            .select("id")
+            .limit(1);
+          produtoId = qualquerProduto?.[0]?.id || null;
+        }
+
+        if (!produtoId) {
+          // Se ainda assim não houver produto, cria um produto padrão
+          const { data: novoProduto, error: prodErr } = await supabase
+            .from("produtos")
+            .insert({
+              nome: "Produto Padrão",
+              preco: 0,
+              comissao_percentual: 0,
+              ativo: true
+            })
+            .select("id")
+            .single();
+
+          if (!prodErr && novoProduto) {
+            produtoId = novoProduto.id;
+          }
+        }
 
         // 2. Registrar a venda com status aprovada
         const { data: newSale, error: saleError } = await supabase

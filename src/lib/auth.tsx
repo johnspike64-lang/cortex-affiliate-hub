@@ -80,6 +80,7 @@ async function syncAffiliateProfile(userId: string, email: string) {
 
       await supabase.from("vendas").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
       await supabase.from("comissoes").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
+      await supabase.from("leads").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
       await supabase.from("movimentacoes").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
 
       await supabase.from("afiliados").delete().eq("id", record.id);

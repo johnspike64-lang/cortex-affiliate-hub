@@ -272,6 +272,18 @@ export async function updateComissaoStatus(id: string, status: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function createComissao(input: {
+  venda_id?: string | null;
+  afiliado_id: string;
+  base: number;
+  percentual: number;
+  valor: number;
+  status: string;
+}) {
+  const { error } = await supabase.from("comissoes").insert(input);
+  if (error) throw new Error(error.message);
+}
+
 export const brl = (v: number | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));
 

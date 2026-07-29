@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Dashboard — Portal de Afiliados Cortex Engine" },
       {
         property: "og:description",
-        content: "Painel de vendas, afiliados, comissões e financeiro do Cortex Engine.",
+        content: "Acompanhe vendas, afiliados, comissões e financeiro do programa de afiliados Cortex Engine em um único painel.",
       },
     ],
   }),

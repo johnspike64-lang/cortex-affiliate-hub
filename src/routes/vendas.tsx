@@ -37,6 +37,7 @@ import {
   updateVendaStatus,
   type VendaStatus,
 } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 const etapas: { nome: string; status: VendaStatus }[] = [
   { nome: "Lead", status: "lead" },
@@ -66,6 +67,8 @@ export const Route = createFileRoute("/vendas")({
 });
 
 function Vendas() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -125,13 +128,14 @@ function Vendas() {
       title="Pipeline de vendas"
       description="Do lead ao pagamento da comissão."
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Registrar venda
-            </Button>
-          </DialogTrigger>
+        isAdmin ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar venda
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Registrar venda</DialogTitle>
@@ -240,8 +244,9 @@ function Vendas() {
                 {criar.isPending ? "Salvando..." : "Salvar"}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        ) : null
       }
     >
       {vendas.isPending ? (
@@ -283,6 +288,7 @@ function Vendas() {
                         <Select
                           value={v.status}
                           onValueChange={(s) => mover.mutate({ id: v.id, status: s as VendaStatus })}
+                          disabled={!isAdmin}
                         >
                           <SelectTrigger className="mt-2 h-8 text-xs">
                             <SelectValue />

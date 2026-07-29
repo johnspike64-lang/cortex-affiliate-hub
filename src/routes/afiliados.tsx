@@ -42,6 +42,8 @@ import {
   listComissoes,
   listVendas,
   updateAfiliadoStatus,
+  listProgressoTodos,
+  listMateriais,
   type AfiliadoStatus,
 } from "@/lib/portal/api";
 
@@ -80,6 +82,8 @@ function Afiliados() {
   const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados });
   const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas });
   const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes });
+  const progressoTodos = useQuery({ queryKey: ["progressoTodos"], queryFn: listProgressoTodos });
+  const materiais = useQuery({ queryKey: ["materiais"], queryFn: listMateriais });
 
   const criar = useMutation({
     mutationFn: () =>
@@ -225,43 +229,61 @@ function Afiliados() {
                   <TableHead>Afiliado</TableHead>
                   <TableHead>Nível</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Treinamento</TableHead>
                   <TableHead>Vendas</TableHead>
                   <TableHead className="text-right">Comissão acumulada</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lista.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      <p className="font-medium">{a.nome}</p>
-                      <p className="text-xs text-muted-foreground">{a.email ?? "—"}</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{a.nivel ?? "—"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={a.status}
-                        onValueChange={(v) =>
-                          mudarStatus.mutate({ id: a.id, status: v as AfiliadoStatus })
-                        }
-                      >
-                        <SelectTrigger className="w-36">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>{vendasPor(a.id)}</TableCell>
-                    <TableCell className="text-right">{brl(comissaoPor(a.id))}</TableCell>
-                  </TableRow>
-                ))}
+                {lista.map((a) => {
+                  const totalMats = (materiais.data ?? []).filter((m) => m.publicado).length;
+                  const concluidosParaEsteAfiliado = (progressoTodos.data ?? []).filter((p) => p.user_id === a.id).length;
+                  const progressoPercent = totalMats > 0 ? Math.round((concluidosParaEsteAfiliado / totalMats) * 100) : 0;
+
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <p className="font-medium">{a.nome}</p>
+                        <p className="text-xs text-muted-foreground">{a.email ?? "—"}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{a.nivel ?? "—"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={a.status}
+                          onValueChange={(v) =>
+                            mudarStatus.mutate({ id: a.id, status: v as AfiliadoStatus })
+                          }
+                        >
+                          <SelectTrigger className="w-36">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1 w-28">
+                          <span className="text-xs font-semibold">{progressoPercent}%</span>
+                          <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="bg-primary h-full rounded-full transition-all duration-300"
+                              style={{ width: `${progressoPercent}%`, backgroundImage: "var(--gradient-primary)" }}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{vendasPor(a.id)}</TableCell>
+                      <TableCell className="text-right">{brl(comissaoPor(a.id))}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

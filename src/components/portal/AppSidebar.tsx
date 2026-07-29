@@ -9,6 +9,7 @@ import {
   FileBarChart,
   ShieldCheck,
   GraduationCap,
+  UserPlus,
 } from "lucide-react";
 
 import {
@@ -28,6 +29,7 @@ import { useAuth } from "@/lib/auth";
 const operacao = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pipeline de vendas", url: "/vendas", icon: TrendingUp },
+  { title: "Leads", url: "/leads", icon: UserPlus },
   { title: "Afiliados", url: "/afiliados", icon: Users },
   { title: "Produtos", url: "/produtos", icon: Package },
   { title: "Treinamentos", url: "/treinamentos", icon: GraduationCap },

@@ -14,6 +14,7 @@ import { Route as AfiliadosRouteImport } from './routes/afiliados'
 import { Route as AuditoriaRouteImport } from './routes/auditoria'
 import { Route as ComissoesRouteImport } from './routes/comissoes'
 import { Route as FinanceiroRouteImport } from './routes/financeiro'
+import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProdutosRouteImport } from './routes/produtos'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
@@ -43,6 +44,11 @@ const ComissoesRoute = ComissoesRouteImport.update({
 const FinanceiroRoute = FinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/auditoria': typeof AuditoriaRoute
   '/comissoes': typeof ComissoesRoute
   '/financeiro': typeof FinanceiroRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/auditoria': typeof AuditoriaRoute
   '/comissoes': typeof ComissoesRoute
   '/financeiro': typeof FinanceiroRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/auditoria': typeof AuditoriaRoute
   '/comissoes': typeof ComissoesRoute
   '/financeiro': typeof FinanceiroRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/auditoria'
     | '/comissoes'
     | '/financeiro'
+    | '/leads'
     | '/login'
     | '/produtos'
     | '/relatorios'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/auditoria'
     | '/comissoes'
     | '/financeiro'
+    | '/leads'
     | '/login'
     | '/produtos'
     | '/relatorios'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/auditoria'
     | '/comissoes'
     | '/financeiro'
+    | '/leads'
     | '/login'
     | '/produtos'
     | '/relatorios'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   AuditoriaRoute: typeof AuditoriaRoute
   ComissoesRoute: typeof ComissoesRoute
   FinanceiroRoute: typeof FinanceiroRoute
+  LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   ProdutosRoute: typeof ProdutosRoute
   RelatoriosRoute: typeof RelatoriosRoute
@@ -195,6 +208,13 @@ declare module '@tanstack/react-router' {
       path: '/financeiro'
       fullPath: '/financeiro'
       preLoaderRoute: typeof FinanceiroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -241,6 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditoriaRoute: AuditoriaRoute,
   ComissoesRoute: ComissoesRoute,
   FinanceiroRoute: FinanceiroRoute,
+  LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   ProdutosRoute: ProdutosRoute,
   RelatoriosRoute: RelatoriosRoute,

@@ -45,7 +45,10 @@ import {
   listMateriais,
   toggleMaterial,
   uploadMaterialArquivo,
+  listProgresso,
+  toggleMaterialProgresso,
   type MaterialTipo,
+  type Material,
 } from "@/lib/portal/api";
 import { useAuth } from "@/lib/auth";
 
@@ -79,6 +82,28 @@ const tipos: { value: MaterialTipo; label: string; icon: typeof Video }[] = [
 
 const iconePara = (t: MaterialTipo) => tipos.find((x) => x.value === t)?.icon ?? LinkIcon;
 
+function getEmbedUrl(url: string): { type: "youtube" | "vimeo" | "direct" | "unknown"; embedUrl: string } {
+  if (!url) return { type: "unknown", embedUrl: "" };
+  
+  const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/;
+  const ytMatch = url.match(ytRegex);
+  if (ytMatch && ytMatch[1]) {
+    return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}` };
+  }
+
+  const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
+  const vimeoMatch = url.match(vimeoRegex);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+  }
+
+  if (url.match(/\.(mp4|webm|ogg)/i) || url.includes("/storage/v1/object/public/")) {
+    return { type: "direct", embedUrl: url };
+  }
+
+  return { type: "unknown", embedUrl: url };
+}
+
 function Treinamentos() {
   const qc = useQueryClient();
   const { role } = useAuth();
@@ -86,6 +111,7 @@ function Treinamentos() {
   const [open, setOpen] = useState(false);
   const [aba, setAba] = useState<"todos" | MaterialTipo>("todos");
   const [file, setFile] = useState<File | null>(null);
+  const [activeVideo, setActiveVideo] = useState<Material | null>(null);
   const [form, setForm] = useState({
     titulo: "",
     descricao: "",
@@ -97,6 +123,23 @@ function Treinamentos() {
   });
 
   const materiais = useQuery({ queryKey: ["materiais"], queryFn: listMateriais });
+  const progressoQuery = useQuery({ queryKey: ["progresso"], queryFn: listProgresso });
+
+  const alternarProgresso = useMutation({
+    mutationFn: (v: { materialId: string; concluido: boolean }) =>
+      toggleMaterialProgresso(v.materialId, v.concluido),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["progresso"] });
+      toast.success("Progresso atualizado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const materiaisPublicados = (materiais.data ?? []).filter((m) => m.publicado);
+  const concluidoIds = new Set((progressoQuery.data ?? []).map((p) => p.material_id));
+  const totalMateriais = materiaisPublicados.length;
+  const totalConcluidos = materiaisPublicados.filter((m) => concluidoIds.has(m.id)).length;
+  const progressoPercent = totalMateriais > 0 ? Math.round((totalConcluidos / totalMateriais) * 100) : 0;
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -280,6 +323,28 @@ function Treinamentos() {
       }
     >
       <div className="space-y-4">
+        {!isAdmin && totalMateriais > 0 && (
+          <Card className="bg-card/40 backdrop-blur-sm border-border/85">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">Seu Progresso no Treinamento</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {totalConcluidos} de {totalMateriais} aulas concluídas
+                  </p>
+                </div>
+                <span className="text-2xl font-bold text-primary">{progressoPercent}%</span>
+              </div>
+              <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-primary h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressoPercent}%`, backgroundImage: "var(--gradient-primary)" }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs value={aba} onValueChange={(v) => setAba(v as typeof aba)}>
           <TabsList>
             <TabsTrigger value="todos">Todos</TabsTrigger>
@@ -312,17 +377,35 @@ function Treinamentos() {
               <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {itens.map((m) => {
                   const Icon = iconePara(m.tipo);
+                  const isConcluido = concluidoIds.has(m.id);
+
                   return (
                     <div
                       key={m.id}
-                      className="flex flex-col gap-3 rounded-lg border border-border/60 p-4"
+                      className={`flex flex-col gap-3 rounded-lg border p-4 transition-all ${
+                        isConcluido
+                          ? "border-green-500/30 bg-green-500/5 shadow-sm"
+                          : "border-border/60"
+                      }`}
                     >
                       <div className="flex items-start gap-3">
+                        {!isAdmin && (
+                          <input
+                            type="checkbox"
+                            checked={isConcluido}
+                            onChange={(e) =>
+                              alternarProgresso.mutate({ materialId: m.id, concluido: e.target.checked })
+                            }
+                            className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                          />
+                        )}
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
                           <Icon className="h-4 w-4 text-accent" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{m.titulo}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate font-medium ${isConcluido ? "line-through text-muted-foreground" : ""}`}>
+                            {m.titulo}
+                          </p>
                           <p className="line-clamp-2 text-xs text-muted-foreground">
                             {m.descricao ?? "—"}
                           </p>
@@ -333,14 +416,27 @@ function Treinamentos() {
                         <Badge variant={m.publicado ? "default" : "outline"}>
                           {m.publicado ? "publicado" : "rascunho"}
                         </Badge>
+                        {isConcluido && (
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20 font-bold">
+                            concluído
+                          </Badge>
+                        )}
                       </div>
                       <div className="mt-auto flex items-center justify-between gap-2">
-                        <Button asChild size="sm" variant="outline">
-                          <a href={m.url} target="_blank" rel="noreferrer">
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Abrir
-                          </a>
-                        </Button>
+                        {m.tipo === "video" ? (
+                          <Button size="sm" onClick={() => setActiveVideo(m)}>
+                            <Video className="mr-2 h-4 w-4" />
+                            Assistir
+                          </Button>
+                        ) : (
+                          <Button asChild size="sm" variant="outline">
+                            <a href={m.url} target="_blank" rel="noreferrer">
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Abrir
+                            </a>
+                          </Button>
+                        )}
+
                         {isAdmin && (
                           <div className="flex items-center gap-2">
                             <Switch
@@ -370,6 +466,79 @@ function Treinamentos() {
             </Card>
           ))
         )}
+
+        <Dialog open={!!activeVideo} onOpenChange={(open) => !open && setActiveVideo(null)}>
+          <DialogContent className="max-w-4xl p-4 bg-background/95 backdrop-blur-md border-border/80">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">{activeVideo?.titulo}</DialogTitle>
+            </DialogHeader>
+            
+            {activeVideo && (
+              <div className="mt-2 space-y-4">
+                <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                  {(() => {
+                    const { type, embedUrl } = getEmbedUrl(activeVideo.url);
+                    if (type === "youtube" || type === "vimeo") {
+                      return (
+                        <iframe
+                          src={embedUrl}
+                          className="h-full w-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      );
+                    } else if (type === "direct") {
+                      return (
+                        <video
+                          src={embedUrl}
+                          controls
+                          className="h-full w-full"
+                        />
+                      );
+                    } else {
+                      return (
+                        <div className="flex h-full flex-col items-center justify-center gap-4 text-center p-4">
+                          <p className="text-sm text-muted-foreground">
+                            Este vídeo não pode ser reproduzido diretamente no player interno.
+                          </p>
+                          <Button asChild>
+                            <a href={activeVideo.url} target="_blank" rel="noreferrer">
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Abrir Vídeo Externamente
+                            </a>
+                          </Button>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                  <p className="text-sm text-muted-foreground max-w-xl">
+                    {activeVideo.descricao ?? "Sem descrição disponível."}
+                  </p>
+
+                  {!isAdmin && (
+                    <div className="flex items-center gap-2 bg-secondary/40 px-3 py-1.5 rounded-lg border border-border/40">
+                      <input
+                        id="dialog-concluido"
+                        type="checkbox"
+                        checked={concluidoIds.has(activeVideo.id)}
+                        onChange={(e) =>
+                          alternarProgresso.mutate({ materialId: activeVideo.id, concluido: e.target.checked })
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary cursor-pointer"
+                      />
+                      <Label htmlFor="dialog-concluido" className="text-xs font-semibold cursor-pointer">
+                        Marcar como Aula Concluída
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </PortalLayout>
   );

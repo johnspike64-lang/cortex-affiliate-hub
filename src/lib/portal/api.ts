@@ -279,3 +279,93 @@ export async function deleteMaterial(id: string, arquivoPath?: string | null) {
   const { error } = await supabase.from("materiais").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+/* ---------------- Leads ---------------- */
+
+export type LeadStatus = "novo" | "em_contato" | "negociacao" | "fechado" | "perdido";
+
+export interface Lead {
+  id: string;
+  afiliado_id: string;
+  nome_responsavel: string;
+  nome_empresa: string;
+  nicho: string | null;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  valor_ofertado: number;
+  status: LeadStatus;
+  created_at: string;
+  afiliados?: { nome: string } | null;
+}
+
+export interface MaterialProgresso {
+  id: string;
+  user_id: string;
+  material_id: string;
+  concluido: boolean;
+  created_at: string;
+}
+
+export const listLeads = async () =>
+  unwrap<Lead[]>(
+    await supabase
+      .from("leads")
+      .select(sel("*, afiliados(nome)"))
+      .order("created_at", { ascending: false }),
+  );
+
+export async function createLead(input: {
+  afiliado_id: string;
+  nome_responsavel: string;
+  nome_empresa: string;
+  nicho?: string;
+  telefone?: string;
+  email?: string;
+  endereco?: string;
+  valor_ofertado: number;
+  status?: LeadStatus;
+}) {
+  const { error } = await supabase.from("leads").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateLeadStatus(id: string, status: LeadStatus) {
+  const { error } = await supabase.from("leads").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/* ---------------- Progresso Treinamentos ---------------- */
+
+export const listProgresso = async () =>
+  unwrap<MaterialProgresso[]>(
+    await supabase
+      .from("materiais_progresso")
+      .select(sel("*"))
+  );
+
+export const listProgressoTodos = async () =>
+  unwrap<MaterialProgresso[]>(
+    await supabase
+      .from("materiais_progresso")
+      .select(sel("*"))
+  );
+
+export async function toggleMaterialProgresso(materialId: string, concluido: boolean) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado");
+
+  if (concluido) {
+    const { error } = await supabase
+      .from("materiais_progresso")
+      .upsert({ user_id: user.id, material_id: materialId, concluido: true }, { onConflict: "user_id,material_id" });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("materiais_progresso")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("material_id", materialId);
+    if (error) throw new Error(error.message);
+  }
+}

@@ -17,6 +17,17 @@ type PortalLayoutProps = {
 };
 
 export function PortalLayout({ title, description, actions, children }: PortalLayoutProps) {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await signOut();
+    navigate({ to: "/login", replace: true });
+  }
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -33,14 +44,27 @@ export function PortalLayout({ title, description, actions, children }: PortalLa
               <Button variant="ghost" size="icon" aria-label="Notificações">
                 <Bell className="h-4 w-4" />
               </Button>
-              <Button asChild size="sm">
-                <Link to="/login">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Entrar
-                </Link>
-              </Button>
+              {user ? (
+                <>
+                  <span className="hidden max-w-[180px] truncate text-sm text-muted-foreground sm:block">
+                    {user.email}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </Button>
+                </>
+              ) : (
+                <Button asChild size="sm">
+                  <Link to="/login">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Entrar
+                  </Link>
+                </Button>
+              )}
             </div>
           </header>
+
 
           <main className="flex-1 px-4 py-6 md:px-8">
             <div className="mx-auto w-full max-w-7xl">

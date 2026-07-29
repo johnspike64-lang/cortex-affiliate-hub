@@ -8,6 +8,7 @@ import {
   Wallet,
   FileBarChart,
   ShieldCheck,
+  GraduationCap,
 } from "lucide-react";
 
 import {

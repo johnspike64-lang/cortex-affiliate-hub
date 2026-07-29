@@ -202,7 +202,7 @@ function Produtos() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Preço</TableHead>
                   <TableHead>Comissão</TableHead>
-                  <TableHead className="text-right">Ativo</TableHead>
+                  {isAdmin && <TableHead className="text-right">Ativo</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -215,13 +215,15 @@ function Produtos() {
                     <TableCell>{p.categoria ?? "—"}</TableCell>
                     <TableCell>{brl(p.preco)}</TableCell>
                     <TableCell>{Number(p.comissao_percentual ?? 0)}%</TableCell>
-                    <TableCell className="text-right">
-                      <Switch
-                        checked={Boolean(p.ativo)}
-                        disabled={!isAdmin}
-                        onCheckedChange={(v) => alternar.mutate({ id: p.id, ativo: v })}
-                      />
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <Switch
+                          checked={Boolean(p.ativo)}
+                          disabled={!isAdmin}
+                          onCheckedChange={(v) => alternar.mutate({ id: p.id, ativo: v })}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

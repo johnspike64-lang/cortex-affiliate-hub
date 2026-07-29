@@ -79,20 +79,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#09090b" },
       { title: "Dashboard — Portal de Afiliados Cortex Engine" },
-      { name: "description", content: "Acompanhe vendas, afiliados, comissões e financeiro do programa de afiliados Cortex Engine em um único painel." },
+      { name: "description", content: "Acompanhe vendas, afiliados, comissões and financeiro do programa de afiliados Cortex Engine em um único painel." },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Dashboard — Portal de Afiliados Cortex Engine" },
-      { property: "og:description", content: "Acompanhe vendas, afiliados, comissões e financeiro do programa de afiliados Cortex Engine em um único painel." },
+      { property: "og:description", content: "Acompanhe vendas, afiliados, comissões and financeiro do programa de afiliados Cortex Engine em um único painel." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Dashboard — Portal de Afiliados Cortex Engine" },
-      { name: "twitter:description", content: "Acompanhe vendas, afiliados, comissões e financeiro do programa de afiliados Cortex Engine em um único painel." },
+      { name: "twitter:description", content: "Acompanhe vendas, afiliados, comissões and financeiro do programa de afiliados Cortex Engine em um único painel." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/49b87077-dd71-4a0c-b24f-e17fcd0c2f7b/id-preview-b25de314--ae4fd28f-6225-44cf-a5c5-b0dbe1f0578b.lovable.app-1785296978945.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/49b87077-dd71-4a0c-b24f-e17fcd0c2f7b/id-preview-b25de314--ae4fd28f-6225-44cf-a5c5-b0dbe1f0578b.lovable.app-1785296978945.png" },
     ],
     links: [
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -127,6 +130,21 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            console.log("Service Worker registrado com sucesso:", reg.scope);
+          })
+          .catch((err) => {
+            console.error("Falha ao registrar o Service Worker:", err);
+          });
+      });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

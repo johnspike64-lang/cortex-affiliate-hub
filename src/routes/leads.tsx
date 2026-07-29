@@ -65,7 +65,7 @@ export const Route = createFileRoute("/leads")({
 });
 
 function LeadsPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const qc = useQueryClient();
 
@@ -88,12 +88,13 @@ function LeadsPage() {
   const leads = useQuery({ queryKey: ["leads"], queryFn: listLeads });
   const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados });
 
-  const meuAfiliado = afiliados.data?.[0];
+  const meuAfiliado = (afiliados.data ?? []).find((a) => a.email === user?.email);
+  const meuAfiliadoId = meuAfiliado?.id || user?.id;
 
   const criar = useMutation({
     mutationFn: () => {
       // Se for afiliado, define o afiliado_id automaticamente a partir do seu perfil
-      const afiliadoId = isAdmin ? form.afiliado_id : (meuAfiliado?.id ?? "");
+      const afiliadoId = isAdmin ? form.afiliado_id : (meuAfiliadoId ?? "");
       if (!afiliadoId) {
         throw new Error("Erro de identificação do afiliado. Entre em contato com o suporte.");
       }
@@ -150,6 +151,11 @@ function LeadsPage() {
 
   // Filtragem dos leads
   const listaFiltrada = (leads.data ?? []).filter((lead) => {
+    // Se não for admin, só pode ver os próprios leads
+    if (!isAdmin && lead.afiliado_id !== meuAfiliadoId) {
+      return false;
+    }
+
     // Filtro por afiliado (apenas admin usa isso, para afiliado o RLS já faz a filtragem no banco)
     if (isAdmin && filtroAfiliado !== "todos" && lead.afiliado_id !== filtroAfiliado) {
       return false;
@@ -334,7 +340,7 @@ function LeadsPage() {
                     !form.nome_responsavel.trim() ||
                     !form.nome_empresa.trim() ||
                     (isAdmin && !form.afiliado_id) ||
-                    (!isAdmin && !meuAfiliado) ||
+                    (!isAdmin && !meuAfiliadoId) ||
                     criar.isPending
                   }
                 >

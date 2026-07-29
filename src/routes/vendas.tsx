@@ -67,7 +67,7 @@ export const Route = createFileRoute("/vendas")({
 });
 
 function Vendas() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -83,6 +83,9 @@ function Vendas() {
   const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas });
   const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados });
   const produtos = useQuery({ queryKey: ["produtos"], queryFn: listProdutos });
+
+  const meuAfiliado = (afiliados.data ?? []).find((a) => a.email === user?.email);
+  const meuAfiliadoId = meuAfiliado?.id || user?.id;
 
   const criar = useMutation({
     mutationFn: () =>
@@ -121,7 +124,10 @@ function Vendas() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const lista = vendas.data ?? [];
+  const todasVendas = vendas.data ?? [];
+  const lista = isAdmin
+    ? todasVendas
+    : (meuAfiliadoId ? todasVendas.filter((v) => v.afiliado_id === meuAfiliadoId) : []);
 
   return (
     <PortalLayout

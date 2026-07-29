@@ -45,7 +45,7 @@ function Financeiro() {
   const saldos = useQuery({ queryKey: ["saldos"], queryFn: listSaldos });
   const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados, enabled: !isAdmin });
 
-  const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email) || afiliados.data?.[0];
+  const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email);
   const meuAfiliadoId = meuAfiliado?.id || user?.id;
 
   const todasMovs = movimentacoes.data ?? [];

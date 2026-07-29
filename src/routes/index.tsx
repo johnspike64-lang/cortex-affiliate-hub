@@ -80,7 +80,7 @@ function Dashboard() {
   const maxMes = Math.max(1, ...meses.map(([, v]) => v));
 
   // --- AFFILIATE DATA ---
-  const meuAfiliado = (afiliados.data ?? []).find((a) => a.email === user?.email) || afiliados.data?.[0];
+  const meuAfiliado = (afiliados.data ?? []).find((a) => a.email === user?.email);
   const meuAfiliadoId = meuAfiliado?.id || user?.id;
 
   const minhasVendas = meuAfiliadoId

@@ -190,6 +190,41 @@ export async function deleteProduto(id: string) {
 }
 
 
+async function handleCommissionForSale(
+  vendaId: string,
+  produtoId: string,
+  afiliadoId: string,
+  vendaValor: number
+) {
+  // Check if commission already exists for this sale
+  const { data: existing } = await supabase
+    .from("comissoes")
+    .select("id")
+    .eq("venda_id", vendaId)
+    .maybeSingle();
+
+  if (!existing) {
+    // Fetch product commission percent/value
+    const { data: produto } = await supabase
+      .from("produtos")
+      .select("comissao_percentual")
+      .eq("id", produtoId)
+      .single();
+
+    const comissaoValor = produto?.comissao_percentual ?? 0;
+
+    const { error } = await supabase.from("comissoes").insert({
+      venda_id: vendaId,
+      afiliado_id: afiliadoId,
+      base: vendaValor,
+      percentual: comissaoValor,
+      valor: comissaoValor,
+      status: "pendente",
+    });
+    if (error) throw new Error(error.message);
+  }
+}
+
 export async function createVenda(input: {
   afiliado_id: string;
   produto_id: string;
@@ -198,13 +233,38 @@ export async function createVenda(input: {
   valor: number;
   status: VendaStatus;
 }) {
-  const { error } = await supabase.from("vendas").insert(input);
+  const { data, error } = await supabase.from("vendas").insert(input).select().single();
   if (error) throw new Error(error.message);
+
+  if (input.status === "aprovada" && data) {
+    await handleCommissionForSale(data.id, input.produto_id, input.afiliado_id, input.valor);
+  }
 }
 
 export async function updateVendaStatus(id: string, status: VendaStatus) {
   const { error } = await supabase.from("vendas").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (status === "aprovada") {
+    // Fetch sale details to get product and affiliate
+    const { data: venda } = await supabase
+      .from("vendas")
+      .select("produto_id, afiliado_id, valor")
+      .eq("id", id)
+      .single();
+
+    if (venda && venda.produto_id && venda.afiliado_id) {
+      await handleCommissionForSale(id, venda.produto_id, venda.afiliado_id, venda.valor);
+    }
+  } else {
+    // Remove pending commission if the sale is moved away from approved
+    const { error: delError } = await supabase
+      .from("comissoes")
+      .delete()
+      .eq("venda_id", id)
+      .eq("status", "pendente");
+    if (delError) throw new Error(delError.message);
+  }
 }
 
 export async function updateComissaoStatus(id: string, status: string) {

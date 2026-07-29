@@ -170,6 +170,26 @@ export async function toggleProduto(id: string, ativo: boolean) {
   if (error) throw new Error(error.message);
 }
 
+export async function updateProduto(
+  id: string,
+  input: {
+    nome: string;
+    categoria?: string;
+    preco: number;
+    comissao_percentual: number;
+    descricao?: string;
+  }
+) {
+  const { error } = await supabase.from("produtos").update(input).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteProduto(id: string) {
+  const { error } = await supabase.from("produtos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+
 export async function createVenda(input: {
   afiliado_id: string;
   produto_id: string;

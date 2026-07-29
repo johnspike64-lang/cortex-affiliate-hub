@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Package, Plus } from "lucide-react";
+import { Edit, MoreHorizontal, Package, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
@@ -16,6 +16,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, createProduto, listProdutos, toggleProduto } from "@/lib/portal/api";
+import { brl, createProduto, listProdutos, toggleProduto, updateProduto, deleteProduto } from "@/lib/portal/api";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/produtos")({
@@ -89,6 +105,62 @@ function Produtos() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["produtos"] }),
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const [editingProduto, setEditingProduto] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    nome: "",
+    categoria: "",
+    preco: "",
+    comissao: "",
+    descricao: "",
+  });
+
+  const [deletingProduto, setDeletingProduto] = useState<any>(null);
+
+  const editar = useMutation({
+    mutationFn: () =>
+      updateProduto(editingProduto.id, {
+        nome: editForm.nome,
+        categoria: editForm.categoria || undefined,
+        preco: Number(editForm.preco || 0),
+        comissao_percentual: Number(editForm.comissao || 0),
+        descricao: editForm.descricao || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Produto atualizado com sucesso");
+      setEditingProduto(null);
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const excluir = useMutation({
+    mutationFn: () => deleteProduto(deletingProduto.id),
+    onSuccess: () => {
+      toast.success("Produto excluído com sucesso");
+      setDeletingProduto(null);
+      qc.invalidateQueries({ queryKey: ["produtos"] });
+    },
+    onError: (e: Error) => {
+      if (e.message?.toLowerCase().includes("foreign key") || e.message?.toLowerCase().includes("violates key constraint")) {
+        toast.error("Não é possível excluir o produto porque ele possui vendas associadas. Você pode desativá-lo em vez disso.");
+      } else {
+        toast.error(e.message);
+      }
+      setDeletingProduto(null);
+    },
+  });
+
+  const handleStartEdit = (p: any) => {
+    setEditingProduto(p);
+    setEditForm({
+      nome: p.nome,
+      categoria: p.categoria ?? "",
+      preco: String(p.preco),
+      comissao: String(p.comissao_percentual),
+      descricao: p.descricao ?? "",
+    });
+  };
 
   const termo = busca.trim().toLowerCase();
   const lista = (produtos.data ?? []).filter((p) =>
@@ -203,6 +275,7 @@ function Produtos() {
                   <TableHead>Preço</TableHead>
                   <TableHead>Comissão</TableHead>
                   {isAdmin && <TableHead className="text-right">Ativo</TableHead>}
+                  {isAdmin && <TableHead className="w-[100px] text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -224,6 +297,31 @@ function Produtos() {
                         />
                       </TableCell>
                     )}
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleStartEdit(p)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingProduto(p)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -231,6 +329,103 @@ function Produtos() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Edição */}
+      <Dialog open={editingProduto !== null} onOpenChange={(open) => !open && setEditingProduto(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar produto</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="epnome">Nome</Label>
+              <Input
+                id="epnome"
+                value={editForm.nome}
+                onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="epreco">Preço (R$)</Label>
+                <Input
+                  id="epreco"
+                  type="number"
+                  step="0.01"
+                  value={editForm.preco}
+                  onChange={(e) => setEditForm({ ...editForm, preco: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ecomissao">Comissão (R$)</Label>
+                <Input
+                  id="ecomissao"
+                  type="number"
+                  step="0.01"
+                  value={editForm.comissao}
+                  onChange={(e) => setEditForm({ ...editForm, comissao: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ecategoria">Categoria</Label>
+              <Input
+                id="ecategoria"
+                value={editForm.categoria}
+                onChange={(e) => setEditForm({ ...editForm, categoria: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edescricao">Descrição</Label>
+              <Textarea
+                id="edescricao"
+                value={editForm.descricao}
+                onChange={(e) => setEditForm({ ...editForm, descricao: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingProduto(null)}
+              disabled={editar.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => editar.mutate()}
+              disabled={!editForm.nome.trim() || editar.isPending}
+            >
+              {editar.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog de Exclusão */}
+      <AlertDialog open={deletingProduto !== null} onOpenChange={(open) => !open && setDeletingProduto(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja realmente excluir este produto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação excluirá permanentemente o produto <strong>{deletingProduto?.nome}</strong> e não poderá ser desfeita. Se este produto tiver vendas ou transações vinculadas, a exclusão falhará.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluir.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                excluir.mutate();
+              }}
+              disabled={excluir.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluir.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalLayout>
   );
 }

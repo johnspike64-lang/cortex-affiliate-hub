@@ -16,7 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, dataBR, downloadCSV, listMovimentacoes, listSaldos } from "@/lib/portal/api";
+import { brl, dataBR, downloadCSV, listMovimentacoes, listSaldos, listAfiliados } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/financeiro")({
   head: () => ({
@@ -37,11 +38,25 @@ export const Route = createFileRoute("/financeiro")({
 });
 
 function Financeiro() {
+  const { role, user } = useAuth();
+  const isAdmin = role === "admin";
+
   const movimentacoes = useQuery({ queryKey: ["movimentacoes"], queryFn: listMovimentacoes });
   const saldos = useQuery({ queryKey: ["saldos"], queryFn: listSaldos });
+  const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados, enabled: !isAdmin });
 
-  const movs = movimentacoes.data ?? [];
-  const saldoTotal = (saldos.data ?? []).reduce((s, x) => s + Number(x.saldo ?? 0), 0);
+  const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email) || afiliados.data?.[0];
+  const meuAfiliadoId = meuAfiliado?.id;
+
+  const todasMovs = movimentacoes.data ?? [];
+  const movs = isAdmin
+    ? todasMovs
+    : (meuAfiliadoId ? todasMovs.filter((m) => m.afiliado_id === meuAfiliadoId) : []);
+
+  const saldoTotal = isAdmin
+    ? (saldos.data ?? []).reduce((s, x) => s + Number(x.saldo ?? 0), 0)
+    : (saldos.data ?? []).filter((s) => s.afiliado_id === meuAfiliadoId).reduce((s, x) => s + Number(x.saldo ?? 0), 0);
+
   const now = new Date();
   const entradasMes = movs
     .filter((m) => {
@@ -89,7 +104,7 @@ function Financeiro() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className={isAdmin ? "lg:col-span-2" : "lg:col-span-3"}>
           <CardHeader>
             <CardTitle>Movimentações</CardTitle>
           </CardHeader>
@@ -135,27 +150,29 @@ function Financeiro() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Saldo por afiliado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {saldos.isPending ? (
-              <Skeleton className="h-40 w-full" />
-            ) : (saldos.data ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum saldo apurado.</p>
-            ) : (
-              <ul className="space-y-3 text-sm">
-                {(saldos.data ?? []).map((s) => (
-                  <li key={s.afiliado_id} className="flex items-center justify-between gap-3">
-                    <span>{s.nome}</span>
-                    <span className="font-medium">{brl(s.saldo)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Saldo por afiliado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {saldos.isPending ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (saldos.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum saldo apurado.</p>
+              ) : (
+                <ul className="space-y-3 text-sm">
+                  {(saldos.data ?? []).map((s) => (
+                    <li key={s.afiliado_id} className="flex items-center justify-between gap-3">
+                      <span>{s.nome}</span>
+                      <span className="font-medium">{brl(s.saldo)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </PortalLayout>
   );

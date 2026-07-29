@@ -68,6 +68,8 @@ export const Route = createFileRoute("/afiliados")({
 const statusOptions: AfiliadoStatus[] = ["pendente", "ativo", "suspenso", "bloqueado"];
 
 function Afiliados() {
+  const { role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin";
   const qc = useQueryClient();
   const [filtro, setFiltro] = useState("");
   const [open, setOpen] = useState(false);
@@ -79,11 +81,31 @@ function Afiliados() {
     nivel: "",
   });
 
-  const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados });
-  const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas });
-  const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes });
-  const progressoTodos = useQuery({ queryKey: ["progressoTodos"], queryFn: listProgressoTodos });
-  const materiais = useQuery({ queryKey: ["materiais"], queryFn: listMateriais });
+  const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados, enabled: isAdmin });
+  const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas, enabled: isAdmin });
+  const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes, enabled: isAdmin });
+  const progressoTodos = useQuery({ queryKey: ["progressoTodos"], queryFn: listProgressoTodos, enabled: isAdmin });
+  const materiais = useQuery({ queryKey: ["materiais"], queryFn: listMateriais, enabled: isAdmin });
+
+  if (authLoading) {
+    return (
+      <PortalLayout title="Afiliados" description="Carregando...">
+        <Skeleton className="h-40 w-full" />
+      </PortalLayout>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <PortalLayout title="Acesso Negado" description="Você não possui permissão para ver esta página comercial.">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Esta área é restrita para administradores.</p>
+          </CardContent>
+        </Card>
+      </PortalLayout>
+    );
+  }
 
   const criar = useMutation({
     mutationFn: () =>

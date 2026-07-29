@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
 
   const vendas = useQuery({ queryKey: ["vendas"], queryFn: listVendas });
@@ -80,10 +80,17 @@ function Dashboard() {
   const maxMes = Math.max(1, ...meses.map(([, v]) => v));
 
   // --- AFFILIATE DATA ---
-  const minhasVendas = vendas.data ?? [];
+  const meuAfiliado = (afiliados.data ?? []).find((a) => a.email === user?.email) || afiliados.data?.[0];
+  const meuAfiliadoId = meuAfiliado?.id;
+
+  const minhasVendas = meuAfiliadoId
+    ? (vendas.data ?? []).filter((v) => v.afiliado_id === meuAfiliadoId)
+    : [];
   const minhasAprovadas = minhasVendas.filter((v) => v.status === "aprovada");
   
-  const minhasComissoes = comissoes.data ?? [];
+  const minhasComissoes = meuAfiliadoId
+    ? (comissoes.data ?? []).filter((c) => c.afiliado_id === meuAfiliadoId)
+    : [];
   const comissoesPendentes = minhasComissoes
     .filter((c) => c.status !== "paga" && c.status !== "cancelada")
     .reduce((s, c) => s + Number(c.valor ?? 0), 0);

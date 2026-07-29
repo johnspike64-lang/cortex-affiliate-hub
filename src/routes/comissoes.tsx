@@ -18,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, dataBR, listComissoes, updateComissaoStatus } from "@/lib/portal/api";
+import { brl, dataBR, listComissoes, updateComissaoStatus, listAfiliados } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/comissoes")({
   head: () => ({
@@ -40,8 +41,11 @@ export const Route = createFileRoute("/comissoes")({
 
 function Comissoes() {
   const qc = useQueryClient();
+  const { role, user } = useAuth();
+  const isAdmin = role === "admin";
   const [aba, setAba] = useState("pendente");
   const comissoes = useQuery({ queryKey: ["comissoes"], queryFn: listComissoes });
+  const afiliados = useQuery({ queryKey: ["afiliados"], queryFn: listAfiliados, enabled: !isAdmin });
 
   const mudar = useMutation({
     mutationFn: (v: { id: string; status: string }) => updateComissaoStatus(v.id, v.status),
@@ -52,10 +56,17 @@ function Comissoes() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email) || afiliados.data?.[0];
+  const meuAfiliadoId = meuAfiliado?.id;
+
   const todas = comissoes.data ?? [];
+  const filtradas = isAdmin
+    ? todas
+    : (meuAfiliadoId ? todas.filter((c) => c.afiliado_id === meuAfiliadoId) : []);
+
   const total = (s: string) =>
-    todas.filter((c) => c.status === s).reduce((acc, c) => acc + Number(c.valor ?? 0), 0);
-  const lista = todas.filter((c) => c.status === aba);
+    filtradas.filter((c) => c.status === s).reduce((acc, c) => acc + Number(c.valor ?? 0), 0);
+  const lista = filtradas.filter((c) => c.status === aba);
 
   return (
     <PortalLayout title="Comissões" description="Cálculo automático por venda e afiliado.">

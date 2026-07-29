@@ -138,10 +138,21 @@ function RootComponent() {
           .register("/sw.js")
           .then((reg) => {
             console.log("Service Worker registrado com sucesso:", reg.scope);
+            // Check for updates on load
+            reg.update();
           })
           .catch((err) => {
             console.error("Falha ao registrar o Service Worker:", err);
           });
+      });
+
+      // Reload page when new service worker takes over
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     }
   }, []);

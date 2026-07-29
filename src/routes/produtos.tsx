@@ -133,7 +133,7 @@ function Produtos() {
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="comissao">Comissão (%)</Label>
+                    <Label htmlFor="comissao">Comissão (R$)</Label>
                     <Input
                       id="comissao"
                       type="number"
@@ -214,7 +214,7 @@ function Produtos() {
                     </TableCell>
                     <TableCell>{p.categoria ?? "—"}</TableCell>
                     <TableCell>{brl(p.preco)}</TableCell>
-                    <TableCell>{Number(p.comissao_percentual ?? 0)}%</TableCell>
+                    <TableCell>{brl(p.comissao_percentual)}</TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
                         <Switch

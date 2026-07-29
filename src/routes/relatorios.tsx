@@ -95,7 +95,7 @@ function Relatorios() {
           data: dataBR(c.created_at),
           afiliado: c.afiliados?.nome ?? "",
           base: Number(c.base ?? 0),
-          percentual: Number(c.percentual ?? 0),
+          comissao: Number(c.percentual ?? 0),
           valor: Number(c.valor ?? 0),
           status: c.status,
         })),

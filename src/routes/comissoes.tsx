@@ -94,7 +94,7 @@ function Comissoes() {
                   <TableHead>Afiliado</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Base</TableHead>
-                  <TableHead>%</TableHead>
+                  <TableHead>Comissão</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="text-right">Ação</TableHead>
                 </TableRow>
@@ -105,7 +105,7 @@ function Comissoes() {
                     <TableCell>{c.afiliados?.nome ?? "—"}</TableCell>
                     <TableCell>{dataBR(c.created_at)}</TableCell>
                     <TableCell>{brl(c.base)}</TableCell>
-                    <TableCell>{Number(c.percentual ?? 0)}%</TableCell>
+                    <TableCell>{brl(c.percentual)}</TableCell>
                     <TableCell className="text-right font-medium">{brl(c.valor)}</TableCell>
                     <TableCell className="text-right">
                       {c.status === "pendente" && (

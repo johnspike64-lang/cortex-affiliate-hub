@@ -155,7 +155,7 @@ function Comissoes() {
   };
 
   const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email) || afiliados.data?.[0];
-  const meuAfiliadoId = meuAfiliado?.id;
+  const meuAfiliadoId = meuAfiliado?.id || user?.id;
 
   const todas = comissoes.data ?? [];
   const filtradas = isAdmin

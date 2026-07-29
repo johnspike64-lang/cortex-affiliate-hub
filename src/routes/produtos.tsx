@@ -59,7 +59,7 @@ export const Route = createFileRoute("/produtos")({
       { property: "og:title", content: "Produtos — Cortex Engine" },
       {
         property: "og:description",
-        content: "Produtos, preços e percentuais de comissão do programa de afiliados.",
+        content: "Produtos, preços e valores de comissão do programa de afiliados.",
       },
     ],
   }),
@@ -264,7 +264,7 @@ function Produtos() {
             <EmptyState
               icon={Package}
               title="Nenhum produto cadastrado"
-              description="Cadastre produtos com preço e percentual de comissão para habilitar o cálculo automático."
+              description="Cadastre produtos com preço e valor de comissão para habilitar o cálculo automático."
             />
           ) : (
             <Table>

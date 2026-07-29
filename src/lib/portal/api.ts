@@ -211,14 +211,15 @@ async function handleCommissionForSale(
       .eq("id", produtoId)
       .single();
 
-    const comissaoPercentual = produto?.comissao_percentual ?? 0;
-    const comissaoValor = (vendaValor * comissaoPercentual) / 100;
+    const comissaoProduto = produto?.comissao_percentual ?? 0;
+    const comissaoValor = comissaoProduto;
+    const pct = vendaValor ? (comissaoValor / vendaValor) * 100 : 0;
 
     const { error } = await supabase.from("comissoes").insert({
       venda_id: vendaId,
       afiliado_id: afiliadoId,
       base: vendaValor,
-      percentual: comissaoPercentual,
+      percentual: pct,
       valor: comissaoValor,
       status: "pendente",
     });

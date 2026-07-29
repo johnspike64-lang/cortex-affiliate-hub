@@ -138,8 +138,7 @@ function Comissoes() {
     const vendaSel = (vendas.data ?? []).find((v) => v.id === vendaId);
     if (vendaSel) {
       const prodSel = (produtos.data ?? []).find((p) => p.id === vendaSel.produto_id);
-      const pct = prodSel ? prodSel.comissao_percentual : 0;
-      const val = (vendaSel.valor * pct) / 100;
+      const val = prodSel ? prodSel.comissao_percentual : 0;
       setForm((prev) => ({
         ...prev,
         venda_id: vendaId,
@@ -153,7 +152,7 @@ function Comissoes() {
   const handleProdutoChange = (prodId: string) => {
     const prodSel = (produtos.data ?? []).find((p) => p.id === prodId);
     if (prodSel) {
-      const val = (prodSel.preco * prodSel.comissao_percentual) / 100;
+      const val = prodSel.comissao_percentual;
       setForm((prev) => ({
         ...prev,
         produto_id: prodId,

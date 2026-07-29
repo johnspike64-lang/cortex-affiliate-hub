@@ -28,6 +28,7 @@ const operacao = [
   { title: "Pipeline de vendas", url: "/vendas", icon: TrendingUp },
   { title: "Afiliados", url: "/afiliados", icon: Users },
   { title: "Produtos", url: "/produtos", icon: Package },
+  { title: "Treinamentos", url: "/treinamentos", icon: GraduationCap },
 ];
 
 const financeiro = [

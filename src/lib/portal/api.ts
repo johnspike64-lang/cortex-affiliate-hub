@@ -217,3 +217,65 @@ export function downloadCSV(filename: string, rows: Record<string, unknown>[]) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/* ---------------- Treinamentos ---------------- */
+
+export type MaterialTipo = "video" | "documento" | "quiz" | "link";
+
+export interface Material {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  tipo: MaterialTipo;
+  url: string;
+  arquivo_path: string | null;
+  modulo: string | null;
+  ordem: number | null;
+  publicado: boolean;
+  created_at: string;
+}
+
+export const listMateriais = async () =>
+  unwrap<Material[]>(
+    await supabase
+      .from("materiais")
+      .select(sel("*"))
+      .order("modulo", { ascending: true })
+      .order("ordem", { ascending: true }),
+  );
+
+export async function uploadMaterialArquivo(file: File) {
+  const path = `${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+  const { error } = await supabase.storage.from("treinamentos").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from("treinamentos").getPublicUrl(path);
+  return { path, url: data.publicUrl };
+}
+
+export async function createMaterial(input: {
+  titulo: string;
+  descricao?: string;
+  tipo: MaterialTipo;
+  url: string;
+  arquivo_path?: string | null;
+  modulo?: string;
+  ordem?: number;
+  publicado?: boolean;
+}) {
+  const { error } = await supabase.from("materiais").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function toggleMaterial(id: string, publicado: boolean) {
+  const { error } = await supabase.from("materiais").update({ publicado }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteMaterial(id: string, arquivoPath?: string | null) {
+  if (arquivoPath) await supabase.storage.from("treinamentos").remove([arquivoPath]);
+  const { error } = await supabase.from("materiais").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}

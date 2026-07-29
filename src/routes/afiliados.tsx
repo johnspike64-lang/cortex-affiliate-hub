@@ -46,6 +46,7 @@ import {
   listMateriais,
   type AfiliadoStatus,
 } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/afiliados")({
   head: () => ({

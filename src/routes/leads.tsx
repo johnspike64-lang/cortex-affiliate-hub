@@ -46,6 +46,12 @@ const etapasLeads: { nome: string; status: LeadStatus }[] = [
   { nome: "Perdido", status: "perdido" },
 ];
 
+const etapasLeadsAfiliado: { nome: string; status: LeadStatus }[] = [
+  { nome: "Novo", status: "novo" },
+  { nome: "Em Contato", status: "em_contato" },
+  { nome: "Negociação", status: "negociacao" },
+];
+
 export const Route = createFileRoute("/leads")({
   head: () => ({
     meta: [
@@ -135,6 +141,8 @@ function LeadsPage() {
     onSuccess: () => {
       toast.success("Status do lead atualizado");
       qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["vendas"] });
+      qc.invalidateQueries({ queryKey: ["comissoes"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -324,7 +332,7 @@ function LeadsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {etapasLeads.map((e) => (
+                      {(isAdmin ? etapasLeads : etapasLeadsAfiliado).map((e) => (
                         <SelectItem key={e.status} value={e.status}>
                           {e.nome}
                         </SelectItem>
@@ -437,12 +445,13 @@ function LeadsPage() {
                         <Select
                           value={lead.status}
                           onValueChange={(s) => mover.mutate({ id: lead.id, status: s as LeadStatus })}
+                          disabled={!isAdmin && (lead.status === "fechado" || lead.status === "perdido")}
                         >
                           <SelectTrigger className="mt-2 h-7 text-xs bg-background/50 border-border/40">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {etapasLeads.map((e) => (
+                            {(isAdmin ? etapasLeads : etapasLeadsAfiliado).map((e) => (
                               <SelectItem key={e.status} value={e.status}>
                                 {e.nome}
                               </SelectItem>

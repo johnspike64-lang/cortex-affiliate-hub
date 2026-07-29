@@ -96,15 +96,19 @@ function Comissoes() {
   });
 
   const criarManual = useMutation({
-    mutationFn: () =>
-      createComissao({
+    mutationFn: () => {
+      const baseVal = Number(form.base || 0);
+      const comissaoVal = Number(form.valor || 0);
+      const pct = baseVal ? (comissaoVal / baseVal) * 100 : 0;
+      return createComissao({
         venda_id: form.venda_id || null,
         afiliado_id: form.afiliado_id,
-        base: Number(form.base || 0),
-        percentual: Number(form.valor || 0),
-        valor: Number(form.valor || 0),
+        base: baseVal,
+        percentual: pct,
+        valor: comissaoVal,
         status: form.status,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("Comissão gerada manualmente!");
       setOpen(false);
@@ -134,24 +138,29 @@ function Comissoes() {
     const vendaSel = (vendas.data ?? []).find((v) => v.id === vendaId);
     if (vendaSel) {
       const prodSel = (produtos.data ?? []).find((p) => p.id === vendaSel.produto_id);
+      const pct = prodSel ? prodSel.comissao_percentual : 0;
+      const val = (vendaSel.valor * pct) / 100;
       setForm((prev) => ({
         ...prev,
         venda_id: vendaId,
         produto_id: vendaSel.produto_id ?? "",
         base: String(vendaSel.valor),
-        valor: prodSel ? String(prodSel.comissao_percentual) : "",
+        valor: String(val),
       }));
     }
   };
 
   const handleProdutoChange = (prodId: string) => {
     const prodSel = (produtos.data ?? []).find((p) => p.id === prodId);
-    setForm((prev) => ({
-      ...prev,
-      produto_id: prodId,
-      base: prodSel ? String(prodSel.preco) : prev.base,
-      valor: prodSel ? String(prodSel.comissao_percentual) : prev.valor,
-    }));
+    if (prodSel) {
+      const val = (prodSel.preco * prodSel.comissao_percentual) / 100;
+      setForm((prev) => ({
+        ...prev,
+        produto_id: prodId,
+        base: String(prodSel.preco),
+        valor: String(val),
+      }));
+    }
   };
 
   const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email);
@@ -357,7 +366,7 @@ function Comissoes() {
                     <TableCell>{c.afiliados?.nome ?? "—"}</TableCell>
                     <TableCell>{dataBR(c.created_at)}</TableCell>
                     <TableCell>{brl(c.base)}</TableCell>
-                    <TableCell>{brl(c.percentual)}</TableCell>
+                    <TableCell>{c.percentual}%</TableCell>
                     <TableCell className="text-right font-medium">{brl(c.valor)}</TableCell>
                     <TableCell className="text-right">
                       {c.status === "pendente" && (

@@ -211,13 +211,14 @@ async function handleCommissionForSale(
       .eq("id", produtoId)
       .single();
 
-    const comissaoValor = produto?.comissao_percentual ?? 0;
+    const comissaoPercentual = produto?.comissao_percentual ?? 0;
+    const comissaoValor = (vendaValor * comissaoPercentual) / 100;
 
     const { error } = await supabase.from("comissoes").insert({
       venda_id: vendaId,
       afiliado_id: afiliadoId,
       base: vendaValor,
-      percentual: comissaoValor,
+      percentual: comissaoPercentual,
       valor: comissaoValor,
       status: "pendente",
     });
@@ -425,6 +426,57 @@ export async function createLead(input: {
 export async function updateLeadStatus(id: string, status: LeadStatus) {
   const { error } = await supabase.from("leads").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (status === "fechado") {
+    // 1. Obter detalhes do lead
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("afiliado_id, nome_responsavel, email, valor_ofertado")
+      .eq("id", id)
+      .single();
+
+    if (lead) {
+      // Evitar duplicidade de venda para o mesmo lead/email
+      const { data: existingSale } = await supabase
+        .from("vendas")
+        .select("id")
+        .eq("afiliado_id", lead.afiliado_id)
+        .eq("cliente_email", lead.email || "")
+        .maybeSingle();
+
+      if (!existingSale) {
+        // Obter o primeiro produto ativo cadastrado no sistema
+        const { data: produtos } = await supabase
+          .from("produtos")
+          .select("id")
+          .eq("ativo", true)
+          .limit(1);
+
+        const produtoId = produtos?.[0]?.id || null;
+
+        // 2. Registrar a venda com status aprovada
+        const { data: newSale, error: saleError } = await supabase
+          .from("vendas")
+          .insert({
+            afiliado_id: lead.afiliado_id,
+            produto_id: produtoId,
+            cliente_nome: lead.nome_responsavel,
+            cliente_email: lead.email || null,
+            valor: lead.valor_ofertado,
+            status: "aprovada",
+          })
+          .select()
+          .single();
+
+        if (saleError) throw new Error(saleError.message);
+
+        // 3. Gerar comissão correspondente
+        if (newSale && produtoId) {
+          await handleCommissionForSale(newSale.id, produtoId, lead.afiliado_id, lead.valor_ofertado);
+        }
+      }
+    }
+  }
 }
 
 /* ---------------- Progresso Treinamentos ---------------- */

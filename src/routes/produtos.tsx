@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { brl, createProduto, listProdutos, toggleProduto } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/produtos")({
   head: () => ({
@@ -51,6 +52,8 @@ export const Route = createFileRoute("/produtos")({
 
 function Produtos() {
   const qc = useQueryClient();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -97,75 +100,77 @@ function Produtos() {
       title="Produtos"
       description="Preços e regras de comissionamento."
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo produto
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo produto</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="pnome">Nome</Label>
-                <Input
-                  id="pnome"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="preco">Preço (R$)</Label>
-                  <Input
-                    id="preco"
-                    type="number"
-                    step="0.01"
-                    value={form.preco}
-                    onChange={(e) => setForm({ ...form, preco: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="comissao">Comissão (%)</Label>
-                  <Input
-                    id="comissao"
-                    type="number"
-                    step="0.01"
-                    value={form.comissao}
-                    onChange={(e) => setForm({ ...form, comissao: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="categoria">Categoria</Label>
-                <Input
-                  id="categoria"
-                  value={form.categoria}
-                  onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => criar.mutate()}
-                disabled={!form.nome.trim() || criar.isPending}
-              >
-                {criar.isPending ? "Salvando..." : "Salvar"}
+        isAdmin ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo produto
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo produto</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="pnome">Nome</Label>
+                  <Input
+                    id="pnome"
+                    value={form.nome}
+                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="preco">Preço (R$)</Label>
+                    <Input
+                      id="preco"
+                      type="number"
+                      step="0.01"
+                      value={form.preco}
+                      onChange={(e) => setForm({ ...form, preco: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="comissao">Comissão (%)</Label>
+                    <Input
+                      id="comissao"
+                      type="number"
+                      step="0.01"
+                      value={form.comissao}
+                      onChange={(e) => setForm({ ...form, comissao: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="categoria">Categoria</Label>
+                  <Input
+                    id="categoria"
+                    value={form.categoria}
+                    onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea
+                    id="descricao"
+                    value={form.descricao}
+                    onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => criar.mutate()}
+                  disabled={!form.nome.trim() || criar.isPending}
+                >
+                  {criar.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null
       }
     >
       <Card>
@@ -213,6 +218,7 @@ function Produtos() {
                     <TableCell className="text-right">
                       <Switch
                         checked={Boolean(p.ativo)}
+                        disabled={!isAdmin}
                         onCheckedChange={(v) => alternar.mutate({ id: p.id, ativo: v })}
                       />
                     </TableCell>

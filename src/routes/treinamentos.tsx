@@ -47,6 +47,7 @@ import {
   uploadMaterialArquivo,
   type MaterialTipo,
 } from "@/lib/portal/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/treinamentos")({
   head: () => ({
@@ -80,6 +81,8 @@ const iconePara = (t: MaterialTipo) => tipos.find((x) => x.value === t)?.icon ??
 
 function Treinamentos() {
   const qc = useQueryClient();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [open, setOpen] = useState(false);
   const [aba, setAba] = useState<"todos" | MaterialTipo>("todos");
   const [file, setFile] = useState<File | null>(null);
@@ -162,116 +165,118 @@ function Treinamentos() {
       title="Treinamentos"
       description="Vídeos, documentos, quizzes e links de apoio para a rede de afiliados."
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo material
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Novo material de treinamento</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="titulo">Título</Label>
-                <Input
-                  id="titulo"
-                  value={form.titulo}
-                  onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={form.tipo}
-                    onValueChange={(v) => setForm({ ...form, tipo: v as MaterialTipo })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tipos.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="modulo">Módulo</Label>
-                  <Input
-                    id="modulo"
-                    placeholder="Ex.: Onboarding"
-                    value={form.modulo}
-                    onChange={(e) => setForm({ ...form, modulo: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="arquivo">Arquivo (vídeo, PDF, slides...)</Label>
-                <Input
-                  id="arquivo"
-                  type="file"
-                  accept="video/*,application/pdf,image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Opcional. Se preferir, cole apenas um link abaixo (YouTube, Google Forms, Drive).
-                </p>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="url">URL</Label>
-                <Input
-                  id="url"
-                  placeholder="https://..."
-                  value={form.url}
-                  onChange={(e) => setForm({ ...form, url: e.target.value })}
-                  disabled={!!file}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  rows={3}
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 items-end gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="ordem">Ordem</Label>
-                  <Input
-                    id="ordem"
-                    type="number"
-                    value={form.ordem}
-                    onChange={(e) => setForm({ ...form, ordem: e.target.value })}
-                  />
-                </div>
-                <div className="flex items-center gap-2 pb-2">
-                  <Switch
-                    id="publicado"
-                    checked={form.publicado}
-                    onCheckedChange={(v) => setForm({ ...form, publicado: v })}
-                  />
-                  <Label htmlFor="publicado">Publicado</Label>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => criar.mutate()}
-                disabled={!form.titulo.trim() || criar.isPending}
-              >
-                {criar.isPending ? "Enviando..." : "Publicar"}
+        isAdmin ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo material
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Novo material de treinamento</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="titulo">Título</Label>
+                  <Input
+                    id="titulo"
+                    value={form.titulo}
+                    onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label>Tipo</Label>
+                    <Select
+                      value={form.tipo}
+                      onValueChange={(v) => setForm({ ...form, tipo: v as MaterialTipo })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tipos.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="modulo">Módulo</Label>
+                    <Input
+                      id="modulo"
+                      placeholder="Ex.: Onboarding"
+                      value={form.modulo}
+                      onChange={(e) => setForm({ ...form, modulo: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="arquivo">Arquivo (vídeo, PDF, slides...)</Label>
+                  <Input
+                    id="arquivo"
+                    type="file"
+                    accept="video/*,application/pdf,image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. Se preferir, cole apenas um link abaixo (YouTube, Google Forms, Drive).
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="url">URL</Label>
+                  <Input
+                    id="url"
+                    placeholder="https://..."
+                    value={form.url}
+                    onChange={(e) => setForm({ ...form, url: e.target.value })}
+                    disabled={!!file}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea
+                    id="descricao"
+                    rows={3}
+                    value={form.descricao}
+                    onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 items-end gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ordem">Ordem</Label>
+                    <Input
+                      id="ordem"
+                      type="number"
+                      value={form.ordem}
+                      onChange={(e) => setForm({ ...form, ordem: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <Switch
+                      id="publicado"
+                      checked={form.publicado}
+                      onCheckedChange={(v) => setForm({ ...form, publicado: v })}
+                    />
+                    <Label htmlFor="publicado">Publicado</Label>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => criar.mutate()}
+                  disabled={!form.titulo.trim() || criar.isPending}
+                >
+                  {criar.isPending ? "Enviando..." : "Publicar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null
       }
     >
       <div className="space-y-4">
@@ -336,25 +341,27 @@ function Treinamentos() {
                             Abrir
                           </a>
                         </Button>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={m.publicado}
-                            onCheckedChange={(v) =>
-                              alternar.mutate({ id: m.id, publicado: v })
-                            }
-                            aria-label="Publicar material"
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Remover material"
-                            onClick={() =>
-                              remover.mutate({ id: m.id, path: m.arquivo_path })
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {isAdmin && (
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={m.publicado}
+                              onCheckedChange={(v) =>
+                                alternar.mutate({ id: m.id, publicado: v })
+                              }
+                              aria-label="Publicar material"
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Remover material"
+                              onClick={() =>
+                                remover.mutate({ id: m.id, path: m.arquivo_path })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

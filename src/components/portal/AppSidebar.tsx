@@ -23,6 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/lib/auth";
 
 const operacao = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -43,6 +44,22 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
+  const operacaoFiltrada = operacao.filter((item) => {
+    if (!isAdmin) {
+      if (item.url === "/afiliados") return false;
+    }
+    return true;
+  });
+
+  const financeiroFiltrado = financeiro.filter((item) => {
+    if (!isAdmin) {
+      if (item.url === "/relatorios" || item.url === "/auditoria") return false;
+    }
+    return true;
+  });
 
   const renderItems = (items: typeof operacao) => (
     <SidebarMenu>
@@ -81,12 +98,12 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Operação</SidebarGroupLabel>
-          <SidebarGroupContent>{renderItems(operacao)}</SidebarGroupContent>
+          <SidebarGroupContent>{renderItems(operacaoFiltrada)}</SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>Financeiro</SidebarGroupLabel>
-          <SidebarGroupContent>{renderItems(financeiro)}</SidebarGroupContent>
+          <SidebarGroupContent>{renderItems(financeiroFiltrado)}</SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>

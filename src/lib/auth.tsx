@@ -40,6 +40,7 @@ async function syncAffiliateProfile(userId: string, email: string) {
         .from("afiliados")
         .insert({
           id: userId,
+          user_id: userId,
           nome,
           email,
           status: "ativo",
@@ -50,41 +51,16 @@ async function syncAffiliateProfile(userId: string, email: string) {
       return;
     }
 
-    if (record && record.id !== userId) {
-      console.log(`Syncing affiliate: migrating ${record.id} -> ${userId}`);
-
-      const { data: newRecord } = await supabase
+    if (record && record.user_id !== userId) {
+      console.log(`Linking affiliate: updating user_id for ${record.id} -> ${userId}`);
+      const { error: updErr } = await supabase
         .from("afiliados")
-        .select("id")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (!newRecord) {
-        const { error: insErr } = await supabase
-          .from("afiliados")
-          .insert({
-            id: userId,
-            nome: record.nome,
-            email: record.email,
-            telefone: record.telefone,
-            documento: record.documento,
-            status: record.status,
-            nivel: record.nivel,
-            created_at: record.created_at,
-          });
-        if (insErr) {
-          console.error("Error inserting synced affiliate record:", insErr);
-          return;
-        }
+        .update({ user_id: userId })
+        .eq("id", record.id);
+      
+      if (updErr) {
+        console.error("Error updating user_id for affiliate:", updErr);
       }
-
-      await supabase.from("vendas").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
-      await supabase.from("comissoes").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
-      await supabase.from("leads").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
-      await supabase.from("movimentacoes").update({ afiliado_id: userId }).eq("afiliado_id", record.id);
-
-      await supabase.from("afiliados").delete().eq("id", record.id);
-      console.log("Affiliate sync completed successfully!");
     }
   } catch (e) {
     console.error("Failed to sync affiliate profile:", e);

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, TrendingUp } from "lucide-react";
+import { Plus, TrendingUp, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
@@ -31,6 +31,7 @@ import {
   brl,
   createVenda,
   dataBR,
+  deleteVenda,
   listAfiliados,
   listProdutos,
   listVendas,
@@ -118,6 +119,16 @@ function Vendas() {
     mutationFn: (v: { id: string; status: VendaStatus }) => updateVendaStatus(v.id, v.status),
     onSuccess: () => {
       toast.success("Status da venda atualizado");
+      qc.invalidateQueries({ queryKey: ["vendas"] });
+      qc.invalidateQueries({ queryKey: ["comissoes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deletar = useMutation({
+    mutationFn: (id: string) => deleteVenda(id),
+    onSuccess: () => {
+      toast.success("Venda excluída com sucesso");
       qc.invalidateQueries({ queryKey: ["vendas"] });
       qc.invalidateQueries({ queryKey: ["comissoes"] });
     },
@@ -282,7 +293,22 @@ function Vendas() {
                     </p>
                   ) : (
                     itens.map((v) => (
-                      <div key={v.id} className="rounded-lg border border-border/60 p-3">
+                      <div key={v.id} className={`relative rounded-lg border border-border/60 p-3 ${isAdmin ? "pr-8" : ""}`}>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              if (confirm("Deseja realmente excluir esta venda? Esta ação também removerá comissões vinculadas.")) {
+                                deletar.mutate(v.id);
+                              }
+                            }}
+                            disabled={deletar.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <p className="text-sm font-medium">{v.cliente_nome ?? "Cliente"}</p>
                         <p className="text-xs text-muted-foreground">
                           {v.produtos?.nome ?? "—"} · {v.afiliados?.nome ?? "—"}

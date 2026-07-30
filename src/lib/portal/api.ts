@@ -269,6 +269,18 @@ export async function updateVendaStatus(id: string, status: VendaStatus) {
   }
 }
 
+export async function deleteVenda(id: string) {
+  // Exclui comissões associadas primeiro para evitar erro de chave estrangeira
+  const { error: comissaoError } = await supabase
+    .from("comissoes")
+    .delete()
+    .eq("venda_id", id);
+  if (comissaoError) throw new Error(comissaoError.message);
+
+  const { error } = await supabase.from("vendas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateComissaoStatus(id: string, status: string) {
   const { error } = await supabase.from("comissoes").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);

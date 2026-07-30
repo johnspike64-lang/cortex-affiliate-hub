@@ -293,22 +293,7 @@ function Vendas() {
                     </p>
                   ) : (
                     itens.map((v) => (
-                      <div key={v.id} className={`relative rounded-lg border border-border/60 p-3 ${isAdmin ? "pr-8" : ""}`}>
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => {
-                              if (confirm("Deseja realmente excluir esta venda? Esta ação também removerá comissões vinculadas.")) {
-                                deletar.mutate(v.id);
-                              }
-                            }}
-                            disabled={deletar.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                      <div key={v.id} className="rounded-lg border border-border/60 p-3">
                         <p className="text-sm font-medium">{v.cliente_nome ?? "Cliente"}</p>
                         <p className="text-xs text-muted-foreground">
                           {v.produtos?.nome ?? "—"} · {v.afiliados?.nome ?? "—"}
@@ -317,22 +302,41 @@ function Vendas() {
                         <p className="text-xs text-muted-foreground">
                           {dataBR(v.data_venda ?? v.created_at)}
                         </p>
-                        <Select
-                          value={v.status}
-                          onValueChange={(s) => mover.mutate({ id: v.id, status: s as VendaStatus })}
-                          disabled={!isAdmin}
-                        >
-                          <SelectTrigger className="mt-2 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {etapas.map((e) => (
-                              <SelectItem key={e.status} value={e.status}>
-                                {e.nome}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        
+                        <div className="flex items-center gap-2 mt-2">
+                          <Select
+                            value={v.status}
+                            onValueChange={(s) => mover.mutate({ id: v.id, status: s as VendaStatus })}
+                            disabled={!isAdmin}
+                          >
+                            <SelectTrigger className="h-8 text-xs flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {etapas.map((e) => (
+                                <SelectItem key={e.status} value={e.status}>
+                                  {e.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {isAdmin && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                              onClick={() => {
+                                if (confirm("Deseja realmente excluir esta venda? Esta ação também removerá comissões vinculadas.")) {
+                                  deletar.mutate(v.id);
+                                }
+                              }}
+                              disabled={deletar.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}

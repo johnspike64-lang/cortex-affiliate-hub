@@ -44,12 +44,12 @@ export const Route = createFileRoute("/financeiro")({
       { title: "Financeiro — Cortex Engine" },
       {
         name: "description",
-        content: "Saldos, solicitações de saque e pagamentos aos afiliados do Cortex Engine.",
+        content: "Saldos e comissões pagas aos afiliados do Cortex Engine.",
       },
       { property: "og:title", content: "Financeiro — Cortex Engine" },
       {
         property: "og:description",
-        content: "Controle de saldo, saques e repasses do programa de afiliados.",
+        content: "Controle de saldo e comissões pagas do programa de afiliados.",
       },
     ],
   }),
@@ -114,7 +114,7 @@ function Financeiro() {
   return (
     <PortalLayout
       title="Financeiro"
-      description="Saldos, saques e repasses."
+      description="Saldos e comissões pagas."
       actions={
         <Button
           variant="secondary"
@@ -125,7 +125,7 @@ function Financeiro() {
               movs.map((m) => ({
                 data: dataBR(m.created_at),
                 afiliado: m.afiliados?.nome ?? "",
-                tipo: m.tipo,
+                tipo: m.tipo === "saque" ? "pagamento" : m.tipo,
                 status: m.status,
                 valor: Number(m.valor ?? 0),
               })),
@@ -139,7 +139,7 @@ function Financeiro() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Saldo disponível" value={brl(saldoTotal)} icon={Wallet} />
         <StatCard label="Entradas do mês" value={brl(entradasMes)} icon={ArrowUpRight} />
-        <StatCard label="Saques solicitados" value={brl(saques)} icon={ArrowDownRight} />
+        <StatCard label="Comissões pagas" value={brl(saques)} icon={ArrowDownRight} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -158,7 +158,7 @@ function Financeiro() {
               <EmptyState
                 icon={Wallet}
                 title="Sem movimentações"
-                description="Créditos, saques e repasses aparecem aqui conforme forem registrados."
+                description="Créditos e comissões pagas aparecem aqui conforme forem registrados."
               />
             ) : (
               <Table>
@@ -176,7 +176,9 @@ function Financeiro() {
                     <TableRow key={m.id}>
                       <TableCell>{dataBR(m.created_at)}</TableCell>
                       <TableCell>{m.afiliados?.nome ?? "—"}</TableCell>
-                      <TableCell>{m.tipo}</TableCell>
+                      <TableCell className="capitalize">
+                        {m.tipo === "saque" ? "pagamento" : m.tipo === "credito" ? "crédito" : m.tipo}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{m.status}</Badge>
                       </TableCell>

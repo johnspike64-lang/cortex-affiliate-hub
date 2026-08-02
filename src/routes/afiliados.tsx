@@ -268,6 +268,11 @@ function Afiliados() {
                       <TableCell>
                         <p className="font-medium">{a.nome}</p>
                         <p className="text-xs text-muted-foreground">{a.email ?? "—"}</p>
+                        {a.chave_pix && (
+                          <p className="text-xs font-semibold text-primary mt-1">
+                            PIX ({a.tipo_pix?.toUpperCase()}): {a.chave_pix}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{a.nivel ?? "—"}</Badge>

@@ -1,12 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { toast } from "sonner";
 
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { EmptyState, StatCard } from "@/components/portal/Panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -16,7 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { brl, dataBR, downloadCSV, listMovimentacoes, listSaldos, listAfiliados } from "@/lib/portal/api";
+import {
+  brl,
+  dataBR,
+  downloadCSV,
+  listMovimentacoes,
+  listSaldos,
+  listAfiliados,
+  updateAfiliadoPix,
+} from "@/lib/portal/api";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/financeiro")({
@@ -40,6 +59,10 @@ export const Route = createFileRoute("/financeiro")({
 function Financeiro() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
+  const qc = useQueryClient();
+
+  const [tipoPix, setTipoPix] = useState("");
+  const [chavePix, setChavePix] = useState("");
 
   const movimentacoes = useQuery({ queryKey: ["movimentacoes"], queryFn: listMovimentacoes });
   const saldos = useQuery({ queryKey: ["saldos"], queryFn: listSaldos });
@@ -47,6 +70,22 @@ function Financeiro() {
 
   const meuAfiliado = afiliados.data?.find((a) => a.email === user?.email);
   const meuAfiliadoId = meuAfiliado?.id || user?.id;
+
+  useEffect(() => {
+    if (meuAfiliado) {
+      setTipoPix(meuAfiliado.tipo_pix || "");
+      setChavePix(meuAfiliado.chave_pix || "");
+    }
+  }, [meuAfiliado]);
+
+  const atualizarPix = useMutation({
+    mutationFn: () => updateAfiliadoPix({ chavePix, tipoPix }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["afiliados"] });
+      toast.success("Chave PIX salva com sucesso!");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const todasMovs = movimentacoes.data ?? [];
   const movs = isAdmin
@@ -174,6 +213,60 @@ function Financeiro() {
           </Card>
         )}
       </div>
+
+      {!isAdmin && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Dados de Recebimento (PIX)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {afiliados.isPending ? (
+              <Skeleton className="h-20 w-full" />
+            ) : (
+              <div className="space-y-4 max-w-md">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="tipo-pix">Tipo de Chave</Label>
+                    <Select
+                      value={tipoPix}
+                      onValueChange={setTipoPix}
+                    >
+                      <SelectTrigger id="tipo-pix">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cpf">CPF</SelectItem>
+                        <SelectItem value="cnpj">CNPJ</SelectItem>
+                        <SelectItem value="email">E-mail</SelectItem>
+                        <SelectItem value="telefone">Telefone</SelectItem>
+                        <SelectItem value="chave_aleatoria">Chave Aleatória</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="chave-pix">Chave PIX</Label>
+                    <Input
+                      id="chave-pix"
+                      placeholder="Insira sua chave"
+                      value={chavePix}
+                      onChange={(e) => setChavePix(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={() => atualizarPix.mutate()}
+                  disabled={atualizarPix.isPending || !chavePix.trim() || !tipoPix}
+                >
+                  {atualizarPix.isPending ? "Salvando..." : "Salvar Chave PIX"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </PortalLayout>
   );
 }

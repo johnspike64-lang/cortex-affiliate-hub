@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   GraduationCap,
   Plus,
@@ -46,7 +46,7 @@ import {
   toggleMaterial,
   uploadMaterialArquivo,
   listProgresso,
-  toggleMaterialProgresso,
+  saveMaterialProgresso,
   type MaterialTipo,
   type Material,
 } from "@/lib/portal/api";
@@ -88,13 +88,13 @@ function getEmbedUrl(url: string): { type: "youtube" | "vimeo" | "direct" | "unk
   const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/;
   const ytMatch = url.match(ytRegex);
   if (ytMatch && ytMatch[1]) {
-    return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}` };
+    return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?enablejsapi=1` };
   }
 
   const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
   const vimeoMatch = url.match(vimeoRegex);
   if (vimeoMatch && vimeoMatch[1]) {
-    return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+    return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?api=1` };
   }
 
   if (url.match(/\.(mp4|webm|ogg)/i) || url.includes("/storage/v1/object/public/")) {
@@ -125,21 +125,229 @@ function Treinamentos() {
   const materiais = useQuery({ queryKey: ["materiais"], queryFn: listMateriais });
   const progressoQuery = useQuery({ queryKey: ["progresso"], queryFn: listProgresso });
 
-  const alternarProgresso = useMutation({
-    mutationFn: (v: { materialId: string; concluido: boolean }) =>
-      toggleMaterialProgresso(v.materialId, v.concluido),
-    onSuccess: () => {
+  const salvarProgresso = useMutation({
+    mutationFn: (v: { materialId: string; tempoParada: number; duracaoTotal: number; concluido: boolean }) =>
+      saveMaterialProgresso(v),
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["progresso"] });
-      toast.success("Progresso atualizado");
+      if (variables.concluido) {
+        toast.success("Progresso atualizado (Aula concluída)");
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const progressoDataRef = useRef(progressoQuery.data);
+  useEffect(() => {
+    progressoDataRef.current = progressoQuery.data;
+  }, [progressoQuery.data]);
+
+  const lastSavedTimeRef = useRef<number>(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const materiaisPublicados = (materiais.data ?? []).filter((m) => m.publicado);
-  const concluidoIds = new Set((progressoQuery.data ?? []).map((p) => p.material_id));
+  const concluidoIds = new Set((progressoQuery.data ?? []).filter((p) => p.concluido).map((p) => p.material_id));
   const totalMateriais = materiaisPublicados.length;
   const totalConcluidos = materiaisPublicados.filter((m) => concluidoIds.has(m.id)).length;
   const progressoPercent = totalMateriais > 0 ? Math.round((totalConcluidos / totalMateriais) * 100) : 0;
+
+  const saveProgress = (currentTime: number, duration: number) => {
+    if (!activeVideo || isAdmin) return;
+
+    const isCloseToEnd = currentTime / duration >= 0.90;
+    const alreadyCompleted = concluidoIds.has(activeVideo.id);
+
+    if (isCloseToEnd && !alreadyCompleted) {
+      salvarProgresso.mutate({
+        materialId: activeVideo.id,
+        tempoParada: currentTime,
+        duracaoTotal: duration,
+        concluido: true,
+      });
+      lastSavedTimeRef.current = currentTime;
+    } else if (!alreadyCompleted && Math.abs(currentTime - lastSavedTimeRef.current) >= 5) {
+      salvarProgresso.mutate({
+        materialId: activeVideo.id,
+        tempoParada: currentTime,
+        duracaoTotal: duration,
+        concluido: false,
+      });
+      lastSavedTimeRef.current = currentTime;
+    }
+  };
+
+  const handleVideoEnded = () => {
+    if (!activeVideo || isAdmin) return;
+    if (!concluidoIds.has(activeVideo.id)) {
+      salvarProgresso.mutate({
+        materialId: activeVideo.id,
+        tempoParada: lastSavedTimeRef.current,
+        duracaoTotal: lastSavedTimeRef.current || 1,
+        concluido: true,
+      });
+    }
+  };
+
+  // YouTube Player Integration
+  useEffect(() => {
+    if (!activeVideo) return;
+    const { type } = getEmbedUrl(activeVideo.url);
+    if (type !== "youtube") return;
+
+    const savedProgress = progressoDataRef.current?.find((p) => p.material_id === activeVideo.id);
+    const initialTime = savedProgress?.tempo_parada || 0;
+    lastSavedTimeRef.current = initialTime;
+
+    let player: any;
+
+    const onPlayerReady = (event: any) => {
+      if (initialTime > 0) {
+        event.target.seekTo(initialTime, true);
+      }
+    };
+
+    const onPlayerStateChange = (event: any) => {
+      // YT.PlayerState.ENDED = 0
+      if (event.data === 0) {
+        handleVideoEnded();
+      }
+    };
+
+    const initYTPlayer = () => {
+      player = new (window as any).YT.Player("youtube-player-iframe", {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+        },
+      });
+    };
+
+    if (!(window as any).YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    const checkAndInit = () => {
+      if ((window as any).YT && (window as any).YT.Player) {
+        initYTPlayer();
+      } else {
+        setTimeout(checkAndInit, 100);
+      }
+    };
+
+    checkAndInit();
+
+    const interval = setInterval(() => {
+      if (player && typeof player.getCurrentTime === "function" && typeof player.getDuration === "function") {
+        const cur = player.getCurrentTime();
+        const dur = player.getDuration();
+        if (cur > 0 && dur > 0) {
+          saveProgress(cur, dur);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      if (player && typeof player.destroy === "function") {
+        player.destroy();
+      }
+    };
+  }, [activeVideo]);
+
+  // Vimeo Player Integration
+  useEffect(() => {
+    if (!activeVideo) return;
+    const { type } = getEmbedUrl(activeVideo.url);
+    if (type !== "vimeo") return;
+
+    const savedProgress = progressoDataRef.current?.find((p) => p.material_id === activeVideo.id);
+    const initialTime = savedProgress?.tempo_parada || 0;
+    lastSavedTimeRef.current = initialTime;
+
+    let player: any;
+
+    const initVimeoPlayer = () => {
+      const iframe = document.getElementById("vimeo-player-iframe") as HTMLIFrameElement;
+      if (!iframe) return;
+
+      player = new (window as any).Vimeo.Player(iframe);
+
+      if (initialTime > 0) {
+        player.setCurrentTime(initialTime).catch((err: any) => console.error("Vimeo seek error:", err));
+      }
+
+      player.on("ended", () => {
+        handleVideoEnded();
+      });
+
+      player.on("timeupdate", (data: { seconds: number; duration: number }) => {
+        saveProgress(data.seconds, data.duration);
+      });
+    };
+
+    if (!(window as any).Vimeo) {
+      const tag = document.createElement("script");
+      tag.src = "https://player.vimeo.com/api/player.js";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    const checkAndInit = () => {
+      if ((window as any).Vimeo && (window as any).Vimeo.Player) {
+        initVimeoPlayer();
+      } else {
+        setTimeout(checkAndInit, 100);
+      }
+    };
+
+    checkAndInit();
+
+    return () => {
+      if (player && typeof player.unload === "function") {
+        player.unload();
+      }
+    };
+  }, [activeVideo]);
+
+  // HTML5 Native Video Player Integration
+  useEffect(() => {
+    if (!activeVideo || !videoRef.current) return;
+    const { type } = getEmbedUrl(activeVideo.url);
+    if (type !== "direct") return;
+
+    const savedProgress = progressoDataRef.current?.find((p) => p.material_id === activeVideo.id);
+    const initialTime = savedProgress?.tempo_parada || 0;
+    lastSavedTimeRef.current = initialTime;
+
+    const video = videoRef.current;
+
+    const handleLoadedMetadata = () => {
+      if (initialTime > 0) {
+        video.currentTime = initialTime;
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      saveProgress(video.currentTime, video.duration);
+    };
+
+    const handleEnded = () => {
+      handleVideoEnded();
+    };
+
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("ended", handleEnded);
+
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, [activeVideo]);
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -390,14 +598,17 @@ function Treinamentos() {
                     >
                       <div className="flex items-start gap-3">
                         {!isAdmin && (
-                          <input
-                            type="checkbox"
-                            checked={isConcluido}
-                            onChange={(e) =>
-                              alternarProgresso.mutate({ materialId: m.id, concluido: e.target.checked })
-                            }
-                            className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
-                          />
+                          <div className="mt-1 shrink-0">
+                            {isConcluido ? (
+                              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                              </div>
+                            ) : (
+                              <div className="h-4 w-4 rounded-full border border-border bg-transparent" />
+                            )}
+                          </div>
                         )}
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
                           <Icon className="h-4 w-4 text-accent" />
@@ -429,7 +640,21 @@ function Treinamentos() {
                             Assistir
                           </Button>
                         ) : (
-                          <Button asChild size="sm" variant="outline">
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (!isConcluido && !isAdmin) {
+                                salvarProgresso.mutate({
+                                  materialId: m.id,
+                                  tempoParada: 0,
+                                  duracaoTotal: 0,
+                                  concluido: true,
+                                });
+                              }
+                            }}
+                          >
                             <a href={m.url} target="_blank" rel="noreferrer">
                               <ExternalLink className="mr-2 h-4 w-4" />
                               Abrir
@@ -478,9 +703,20 @@ function Treinamentos() {
                 <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
                   {(() => {
                     const { type, embedUrl } = getEmbedUrl(activeVideo.url);
-                    if (type === "youtube" || type === "vimeo") {
+                    if (type === "youtube") {
                       return (
                         <iframe
+                          id="youtube-player-iframe"
+                          src={embedUrl}
+                          className="h-full w-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      );
+                    } else if (type === "vimeo") {
+                      return (
+                        <iframe
+                          id="vimeo-player-iframe"
                           src={embedUrl}
                           className="h-full w-full border-0"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -490,6 +726,7 @@ function Treinamentos() {
                     } else if (type === "direct") {
                       return (
                         <video
+                          ref={videoRef}
                           src={embedUrl}
                           controls
                           className="h-full w-full"
@@ -520,18 +757,18 @@ function Treinamentos() {
 
                   {!isAdmin && (
                     <div className="flex items-center gap-2 bg-secondary/40 px-3 py-1.5 rounded-lg border border-border/40">
-                      <input
-                        id="dialog-concluido"
-                        type="checkbox"
-                        checked={concluidoIds.has(activeVideo.id)}
-                        onChange={(e) =>
-                          alternarProgresso.mutate({ materialId: activeVideo.id, concluido: e.target.checked })
-                        }
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary cursor-pointer"
-                      />
-                      <Label htmlFor="dialog-concluido" className="text-xs font-semibold cursor-pointer">
-                        Marcar como Aula Concluída
-                      </Label>
+                      {concluidoIds.has(activeVideo.id) ? (
+                        <span className="text-xs font-semibold text-green-500 flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="h-3 w-3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                          Aula Concluída
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Assista ao vídeo até o fim para concluir automaticamente
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

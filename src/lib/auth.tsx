@@ -21,6 +21,17 @@ const AuthContext = createContext<AuthContextValue>({
 
 async function syncAffiliateProfile(userId: string, email: string) {
   try {
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (roleData?.role === "admin") {
+      await supabase.from("afiliados").delete().eq("id", userId);
+      return;
+    }
+
     const { data: record, error: fetchErr } = await supabase
       .from("afiliados")
       .select("*")

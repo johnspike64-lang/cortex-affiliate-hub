@@ -18,6 +18,8 @@ export interface Afiliado {
   documento: string | null;
   status: AfiliadoStatus;
   nivel: string | null;
+  chave_pix?: string | null;
+  tipo_pix?: string | null;
   created_at: string;
 }
 
@@ -92,10 +94,26 @@ function unwrap<T>(res: { data: unknown; error: { message: string } | null }): T
   return (res.data ?? []) as T;
 }
 
-export const listAfiliados = async () =>
-  unwrap<Afiliado[]>(
-    await supabase.from("afiliados").select(sel("*")).order("created_at", { ascending: false }),
-  );
+export const listAfiliados = async () => {
+  const { data: afiliados, error: afErr } = await supabase
+    .from("afiliados")
+    .select(sel("*"))
+    .order("created_at", { ascending: false });
+  if (afErr) throw new Error(afErr.message);
+
+  const { data: roles, error: rolesErr } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .eq("role", "admin");
+
+  if (rolesErr) {
+    console.error("Error fetching admin roles:", rolesErr);
+    return afiliados as Afiliado[];
+  }
+
+  const adminIds = new Set((roles ?? []).map((r) => r.user_id));
+  return (afiliados ?? []).filter((a) => !adminIds.has(a.id)) as Afiliado[];
+};
 
 export const listProdutos = async () =>
   unwrap<Produto[]>(
@@ -410,6 +428,8 @@ export interface MaterialProgresso {
   user_id: string;
   material_id: string;
   concluido: boolean;
+  tempo_parada?: number | null;
+  duracao_total?: number | null;
   created_at: string;
 }
 
@@ -556,4 +576,46 @@ export async function toggleMaterialProgresso(materialId: string, concluido: boo
       .eq("material_id", materialId);
     if (error) throw new Error(error.message);
   }
+}
+
+export async function saveMaterialProgresso(input: {
+  materialId: string;
+  tempoParada: number;
+  duracaoTotal: number;
+  concluido: boolean;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado");
+
+  const { error } = await supabase
+    .from("materiais_progresso")
+    .upsert(
+      {
+        user_id: user.id,
+        material_id: input.materialId,
+        tempo_parada: input.tempoParada,
+        duracao_total: input.duracaoTotal,
+        concluido: input.concluido,
+      },
+      { onConflict: "user_id,material_id" }
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function updateAfiliadoPix(input: {
+  chavePix: string;
+  tipoPix: string;
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado");
+
+  const { error } = await supabase
+    .from("afiliados")
+    .update({
+      chave_pix: input.chavePix,
+      tipo_pix: input.tipoPix
+    })
+    .eq("id", user.id);
+
+  if (error) throw new Error(error.message);
 }

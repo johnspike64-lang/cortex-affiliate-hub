@@ -92,9 +92,9 @@ function Financeiro() {
     ? todasMovs
     : (meuAfiliadoId ? todasMovs.filter((m) => m.afiliado_id === meuAfiliadoId) : []);
 
-  const saldoTotal = isAdmin
-    ? (saldos.data ?? []).reduce((s, x) => s + Number(x.saldo ?? 0), 0)
-    : (saldos.data ?? []).filter((s) => s.afiliado_id === meuAfiliadoId).reduce((s, x) => s + Number(x.saldo ?? 0), 0);
+  const saldoTotal = movs
+    .filter((m) => m.tipo === "credito" && m.status !== "pago")
+    .reduce((s, m) => s + Number(m.valor ?? 0), 0);
 
   const now = new Date();
   const entradasMes = movs
@@ -108,8 +108,22 @@ function Financeiro() {
     })
     .reduce((s, m) => s + Number(m.valor ?? 0), 0);
   const saques = movs
-    .filter((m) => m.tipo === "saque")
+    .filter((m) => m.status === "pago")
     .reduce((s, m) => s + Number(m.valor ?? 0), 0);
+
+  const saldoPorAfiliado = Object.values(
+    todasMovs.reduce((acc, m) => {
+      if (!m.afiliado_id || !m.afiliados?.nome) return acc;
+      const id = m.afiliado_id;
+      const nome = m.afiliados.nome;
+      const current = acc[id] || { afiliado_id: id, nome, saldo: 0 };
+      if (m.tipo === "credito" && m.status !== "pago") {
+        current.saldo += Number(m.valor ?? 0);
+      }
+      acc[id] = current;
+      return acc;
+    }, {} as Record<string, { afiliado_id: string; nome: string; saldo: number }>)
+  );
 
   return (
     <PortalLayout
@@ -197,13 +211,13 @@ function Financeiro() {
               <CardTitle>Saldo por afiliado</CardTitle>
             </CardHeader>
             <CardContent>
-              {saldos.isPending ? (
+              {movimentacoes.isPending ? (
                 <Skeleton className="h-40 w-full" />
-              ) : (saldos.data ?? []).length === 0 ? (
+              ) : saldoPorAfiliado.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum saldo apurado.</p>
               ) : (
                 <ul className="space-y-3 text-sm">
-                  {(saldos.data ?? []).map((s) => (
+                  {saldoPorAfiliado.map((s) => (
                     <li key={s.afiliado_id} className="flex items-center justify-between gap-3">
                       <span>{s.nome}</span>
                       <span className="font-medium">{brl(s.saldo)}</span>
